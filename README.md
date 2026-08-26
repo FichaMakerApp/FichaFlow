@@ -953,3 +953,36 @@ tipo de cambio) — se movió a un menú desplegable detrás de un botón
 "☰ Más" (que cambia a "✕ Cerrar" mientras está abierto). Elegir
 cualquier cosa del menú lo cierra solo. Verificado en escritorio y en
 ancho de celular: sin desbordamiento horizontal en ninguno de los dos.
+
+### Ronda siguiente (barra lateral y vista previa ya no se salen de la pantalla, mayúsculas al escribir)
+
+**Encontré y corregí por qué "Guardar cambios"/"Modo oscuro" se salían
+de la pantalla en un iPhone real** (avisado con una captura): el
+contenedor nuevo que los agrupa (`.rail-fixed`) no estaba realmente
+limitado al ancho de la pantalla — crecía según el ancho que "quería"
+tener el contenido en vez de encogerse a lo disponible. Corregido para
+que se ajuste de verdad. Verificado midiendo el borde derecho de cada
+botón contra el ancho real de la pantalla: los tres caben completos.
+
+**La vista en vivo también se salía de la pantalla en celular — mismo
+tipo de causa, encontrada aparte.** `align-items:flex-start` en el
+contenedor de "formulario + vista previa" solo tenía sentido para la
+versión de escritorio (uno al lado del otro); al apilarse en columna
+para celular, esa misma propiedad pasó a controlar el ancho en vez de
+la altura, y el resultado fue que la columna de vista previa se
+dimensionaba según el ancho real de la ficha (816px) en vez de encogerse
+a la pantalla. Con esto arreglado, la escala se calcula correctamente
+otra vez (verificado: en una pantalla de 375px la ficha se escala a
+~38%, cabe completa) — importante porque, con el zoom-out ya
+desactivado desde la ronda anterior, antes de este arreglo no había
+forma de ver la vista completa en un iPhone real.
+
+**Todos los campos de texto libre ahora escriben en mayúsculas
+directamente** — no es solo un efecto visual (`text-transform` de CSS),
+sino que el valor real que se guarda queda en mayúsculas, para que se
+vea igual en la vista previa y en el PDF, no solo en la casilla del
+formulario. El cursor se mantiene en su lugar mientras escribes (no
+salta al final). Los campos de "Enlace" (botones, showroom) quedan
+exentos a propósito — una URL en mayúsculas puede dejar de funcionar.
+Verificado campo por campo, incluyendo que "Enlace" conserva
+mayúsculas/minúsculas tal cual se escriben.
