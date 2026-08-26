@@ -105,7 +105,11 @@
     (ficha.botones || []).forEach(function (b) {
       design.botones.push({ texto: b.texto, color: b.color, estilo: b.estilo });
     });
-    return Sync.saveDefaultDesignRemote(design).then(function () {
+    return compressImagesForSync(design).then(function (compressedDesign) {
+      return Sync.saveDefaultDesignRemote(compressedDesign);
+    }).then(function () {
+      // Cache the original (uncompressed) locally — only what travels to
+      // Supabase needs the smaller version, this device keeps full quality.
       cachedDefaultDesign = design;
       return design;
     }).catch(function (e) {
@@ -433,10 +437,54 @@
   let lastLibraryError = null;
   function getLastLibraryError() { return lastLibraryError; }
 
+  // Anything synced to the shared backend gets its embedded images
+  // recompressed first — a page saved before per-upload auto-compression
+  // existed can still carry full-resolution, multi-MB photos, which is a
+  // real candidate for a sync request failing. This only affects what
+  // travels to Supabase; the local copy shown on this device keeps its
+  // original quality. Walks the object generically instead of hardcoding
+  // field names (galeria[].src, modelos[].plano, paperImage, …) so any new
+  // image field added later is covered automatically.
+  const SYNC_MAX_IMAGE_DIM = 1600;
+  function compressDataUrlForSync(dataUrl) {
+    return new Promise(function (resolve) {
+      if (typeof dataUrl !== "string" || dataUrl.indexOf("data:image/") !== 0) { resolve(dataUrl); return; }
+      const img = new Image();
+      img.onload = function () {
+        const w = img.naturalWidth, h = img.naturalHeight;
+        if (!w || !h || (w <= SYNC_MAX_IMAGE_DIM && h <= SYNC_MAX_IMAGE_DIM)) { resolve(dataUrl); return; }
+        const scale = Math.min(SYNC_MAX_IMAGE_DIM / w, SYNC_MAX_IMAGE_DIM / h);
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(w * scale);
+        canvas.height = Math.round(h * scale);
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL("image/jpeg", 0.82));
+      };
+      img.onerror = function () { resolve(dataUrl); };
+      img.src = dataUrl;
+    });
+  }
+  function compressImagesForSync(value) {
+    if (Array.isArray(value)) return Promise.all(value.map(compressImagesForSync));
+    if (value && typeof value === "object") {
+      const keys = Object.keys(value);
+      return Promise.all(keys.map(function (k) { return compressImagesForSync(value[k]); })).then(function (vals) {
+        const out = {};
+        keys.forEach(function (k, i) { out[k] = vals[i]; });
+        return out;
+      });
+    }
+    if (typeof value === "string" && value.indexOf("data:image/") === 0) return compressDataUrlForSync(value);
+    return Promise.resolve(value);
+  }
+
   function addLibraryEntry(entry) {
     state.library.push(entry);
     notify();
-    return Sync.addLibraryEntryRemote(entry).then(function () {
+    return compressImagesForSync(entry.ficha).then(function (compressedFicha) {
+      return Sync.addLibraryEntryRemote({ id: entry.id, savedAt: entry.savedAt, ficha: compressedFicha });
+    }).then(function () {
       lastLibraryError = null;
     }).catch(function (e) {
       console.error("No se pudo guardar en la biblioteca compartida.", e);
@@ -463,42 +511,53 @@
     });
   }
 
-  // Migration: IndexedDB may hold real pages saved locally before the
-  // shared-library switch. Reconciles by id (not just "is the remote
-  // empty?") so it's self-healing — safe to run on every boot, and a page
-  // that failed to migrate last time (e.g. one heavy enough to hit a
-  // request-size limit) gets retried without re-uploading everything
-  // else. Each page migrates independently (Promise.all, not a chain) so
-  // one bad/oversized page can never block the rest from going up.
+  // CRITICAL invariant: what you can SEE in the library on a given device
+  // must never depend on whether syncing to the shared backend succeeded.
+  // A page that fails to migrate is still real data sitting in this
+  // device's IndexedDB — hiding it because Supabase doesn't have it yet
+  // would look exactly like data loss, which is exactly what happened
+  // before this: the displayed library was built ONLY from the remote
+  // list, so a page that failed to upload silently disappeared even on
+  // the device where it still physically existed. This merges local-only
+  // pages (by id) into what's shown, on top of whatever the shared list
+  // has — remote is null (not []) specifically when it couldn't be
+  // reached at all, so a temporary connection problem falls back to
+  // "show what's local" instead of being treated as "the shared library
+  // is genuinely empty".
+  function mergeLibraryForDisplay(legacyLocal, remote) {
+    if (!remote) return (legacyLocal || []).slice();
+    const remoteIds = {};
+    remote.forEach(function (e) { remoteIds[e.id] = true; });
+    const localOnly = (legacyLocal || []).filter(function (e) { return !remoteIds[e.id]; });
+    return remote.concat(localOnly).sort(function (a, b) { return a.savedAt - b.savedAt; });
+  }
+
+  // Fire-and-forget, run AFTER the app has already booted and shown the
+  // merged library from local data — sync success/failure updates
+  // libraryMigrationFailures and re-notifies, but never blocks or gates
+  // what's already on screen. Each page migrates independently
+  // (Promise.all, not a chain) so one bad page can't block the rest.
   let libraryMigrationFailures = [];
-  function migrateLegacyLibraryIfNeeded(remoteLibrary) {
-    return idbGet(LS_LIB).then(function (legacy) {
-      if (!legacy || !legacy.length) return remoteLibrary;
-      const remoteIds = {};
-      (remoteLibrary || []).forEach(function (e) { remoteIds[e.id] = true; });
-      const missing = legacy.filter(function (e) { return !remoteIds[e.id]; });
-      if (!missing.length) return remoteLibrary;
-      return Promise.all(missing.map(function (entry) {
-        return Sync.addLibraryEntryRemote(entry).then(function () {
-          return { ok: true, entry: entry };
-        }).catch(function (e) {
-          console.error("No se pudo migrar una página de la biblioteca local (\"" + ((entry.ficha && entry.ficha.desarrollo) || "sin nombre") + "\").", e);
-          return { ok: false, entry: entry, error: e };
-        });
-      })).then(function (results) {
-        const merged = (remoteLibrary || []).slice();
-        libraryMigrationFailures = [];
-        results.forEach(function (r) {
-          if (r.ok) merged.push(r.entry);
-          else libraryMigrationFailures.push(r.entry);
-        });
-        return merged;
+  function getLibraryMigrationFailures() { return libraryMigrationFailures; }
+  function migrateLocalOnlyLibraryEntries(legacyLocal, remote) {
+    const remoteIds = {};
+    (remote || []).forEach(function (e) { remoteIds[e.id] = true; });
+    const missing = (legacyLocal || []).filter(function (e) { return !remoteIds[e.id]; });
+    if (!missing.length) { libraryMigrationFailures = []; return; }
+    Promise.all(missing.map(function (entry) {
+      return compressImagesForSync(entry.ficha).then(function (compressedFicha) {
+        return Sync.addLibraryEntryRemote({ id: entry.id, savedAt: entry.savedAt, ficha: compressedFicha });
+      }).then(function () {
+        return { ok: true, entry: entry };
+      }).catch(function (e) {
+        console.error("No se pudo subir a la biblioteca compartida la página \"" + ((entry.ficha && entry.ficha.desarrollo) || "sin nombre") + "\".", e);
+        return { ok: false, entry: entry, error: e };
       });
-    }).catch(function () {
-      return remoteLibrary;
+    })).then(function (results) {
+      libraryMigrationFailures = results.filter(function (r) { return !r.ok; }).map(function (r) { return r.entry; });
+      notify();
     });
   }
-  function getLibraryMigrationFailures() { return libraryMigrationFailures; }
 
   // ---------- store ----------
   // document/library/defaultDesign start empty and are filled in by init()
@@ -550,18 +609,26 @@
       cachedDefaultDesign = design;
       return Promise.all([
         loadFromIdbOrMigrate(LS_DOC, normalizeDocument, defaultDocument),
+        idbGet(LS_LIB).catch(function () { return null; }),
         Sync.loadLibraryRemote().catch(function (e) {
           console.error("No se pudo cargar la biblioteca compartida.", e);
-          return [];
-        }).then(migrateLegacyLibraryIfNeeded),
+          return null; // null = couldn't reach it at all, distinct from "reached it and it's empty"
+        }),
       ]);
     }).then(function (results) {
       state.document = results[0];
-      state.library = results[1];
+      const legacyLocal = results[1];
+      const remoteLibrary = results[2];
+      state.library = mergeLibraryForDisplay(legacyLocal, remoteLibrary);
       state.ready = true;
       if (state.document.fichas.length && !state.activeFichaId) {
         state.activeFichaId = state.document.fichas[0].id;
       }
+      // Sync anything local-only up to the shared library in the
+      // background, AFTER the app is already usable — never block or gate
+      // boot on this (that's what made every open slow while pages kept
+      // re-attempting a broken upload).
+      if (remoteLibrary !== null) migrateLocalOnlyLibraryEntries(legacyLocal, remoteLibrary);
     });
   }
 

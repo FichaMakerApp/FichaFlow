@@ -1883,8 +1883,27 @@
     if (positions.window !== undefined) window.scrollTo(0, positions.window);
   }
 
+  // Library sync happens in the background after boot (see store.js) — this
+  // surfaces a toast the first time a batch of failures shows up, without
+  // re-nagging on every unrelated render. Nothing ever disappears from the
+  // library because of a failed sync (each device always shows its own
+  // local pages regardless), so this is informational, not a data-loss
+  // warning — it just tells you those pages aren't shared with other
+  // devices yet.
+  let lastToastedLibraryFailureIds = "";
+  function checkLibraryMigrationFailures() {
+    const failed = S.getLibraryMigrationFailures();
+    const ids = failed.map(function (f) { return f.id; }).sort().join(",");
+    if (ids === lastToastedLibraryFailureIds) return;
+    lastToastedLibraryFailureIds = ids;
+    if (!failed.length) return;
+    const names = failed.map(function (f) { return (f.ficha && f.ficha.desarrollo) || "sin nombre"; }).join(", ");
+    toast("⚠ " + failed.length + " página(s) de la biblioteca no se pudieron compartir todavía (siguen visibles aquí, solo no en tus otros dispositivos): " + names + ". Se reintenta solo más tarde.", 6000);
+  }
+
   function render() {
     const state = S.state;
+    checkLibraryMigrationFailures();
     const app = document.getElementById("app");
     const scrollPositions = captureScroll();
     app.innerHTML = "";
