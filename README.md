@@ -22,7 +22,7 @@ No requiere Node, Python ni ninguna instalación. En celular funciona igual
 
 La app también está publicada en:
 
-**https://braganmau5-dotcom.github.io/FichaFlow/**
+**https://fichamakerapp.github.io/FichaFlow/**
 
 Ábrela en Safari y agrégala a pantalla de inicio (compartir → "Agregar a
 pantalla de inicio") para que se sienta como una app aparte. Cada
