@@ -938,3 +938,18 @@ modelos arrastrando las miniaturas tampoco funciona con el dedo (usa
 Para fichas hay una alternativa ya disponible — los botones ↑/↓ en la
 pantalla de revisión — pero no para modelos ni para el arrastre en la
 barra de arriba. Avisa si quieres que lo resuelva también.
+
+### Ronda siguiente (sin zoom out, menú lateral desplegable)
+
+**Ya no se puede alejar el zoom más allá del 100%** (sí se puede seguir
+acercando) — ajuste al `viewport` de la página
+(`minimum-scale=1, maximum-scale=5`).
+
+**El panel lateral se reorganizó**: "💾 Guardar cambios" (con su
+indicador de guardado) y "🌙 Modo oscuro" se quedan siempre visibles y
+fijos. Todo lo demás — pasos (1. Cliente/fichas, 2. Revisión), "📊 Ver
+almacenamiento", "🎨 Modo diseñador", y los contadores (fichas, pines,
+tipo de cambio) — se movió a un menú desplegable detrás de un botón
+"☰ Más" (que cambia a "✕ Cerrar" mientras está abierto). Elegir
+cualquier cosa del menú lo cierra solo. Verificado en escritorio y en
+ancho de celular: sin desbordamiento horizontal en ninguno de los dos.
