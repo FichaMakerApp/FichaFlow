@@ -1013,3 +1013,31 @@ es la app donde lo estás viendo — por ejemplo, el visor de PDF dentro de
 WhatsApp normalmente no soporta links, aunque el PDF sea válido. Prueba
 abriendo el PDF con "Abrir en otra app" (Safari o Archivos) en vez de
 verlo directo dentro de WhatsApp, y avísame si ahí tampoco funciona.
+
+### Ronda siguiente (biblioteca y diseño predeterminado compartidos entre dispositivos y personas)
+
+**La biblioteca de páginas guardadas y el diseño predeterminado ahora
+son de verdad compartidos** — antes cada navegador (la app de
+escritorio, la liga del iPhone, la computadora de quien más use la app)
+guardaba su propia copia por separado, sin ninguna conexión entre sí;
+ahora los tres leen y escriben el mismo lugar, así que arrancan
+igual y cualquiera de los dos puede usar la biblioteca del otro.
+
+**Cómo se hizo**: se agregó Supabase (una base de datos gratuita en
+línea) con dos tablas — `library_pages` (cada página guardada es su
+propia fila, no una sola lista completa que se sobreescribe, así que si
+tú y quien comparta la app agregan una página cada quien al mismo
+tiempo desde dispositivos distintos, nunca se pisan) y `default_design`
+(un solo registro compartido). Sin cuentas ni contraseñas — acceso
+abierto solo para quien tenga la llave que vive en el código de la app
+(`js/sync.js`). El archivo `supabase-setup.sql` en la raíz del proyecto
+documenta el esquema exacto, por si algún día hay que recrearlo.
+
+**Nada de lo que ya tenías guardado se perdió**: si ya había una
+biblioteca o un diseño predeterminado guardado localmente antes de este
+cambio, se migra solo la primera vez que se detecta (se sube a la base
+compartida, y de ahí en adelante esa es la fuente real). Verificado de
+punta a punta: agregué una página desde un origen, y confirmé que
+apareció correctamente al abrir la app desde un origen completamente
+distinto — la misma prueba que demuestra que funcionará entre tu
+computadora y tu iPhone.
