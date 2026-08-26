@@ -1041,3 +1041,55 @@ punta a punta: agregué una página desde un origen, y confirmé que
 apareció correctamente al abrir la app desde un origen completamente
 distinto — la misma prueba que demuestra que funcionará entre tu
 computadora y tu iPhone.
+
+### Ronda siguiente (corregido: páginas de la biblioteca que "desaparecían", arranque lento)
+
+**Se corrigió un problema serio**: después de activar la biblioteca
+compartida, algunas páginas que ya estaban guardadas dejaron de
+aparecer, como si se hubieran borrado. No se borró nada — el problema
+era que la app solo mostraba una página si ya se había confirmado que
+existía en la base compartida; si el envío a la base fallaba por
+cualquier motivo (una imagen muy pesada, una conexión lenta, etc.), esa
+página se quedaba guardada en el dispositivo pero invisible en la
+biblioteca. Ahora la biblioteca siempre muestra la unión de lo que hay
+en el dispositivo más lo que hay en la base compartida — nunca oculta
+algo que sí existe localmente solo porque no se pudo compartir todavía.
+Si alguna página no logra subirse, sigue viéndose normal donde ya
+estaba y aparece un aviso indicando cuáles siguen pendientes de
+compartir (se reintenta solo, sin que tengas que hacer nada).
+
+**También se corrigió la lentitud al abrir la app**: antes, migrar las
+páginas guardadas localmente a la base compartida bloqueaba el arranque
+— la app esperaba a que cada página terminara de subirse, una por una,
+antes de mostrar nada, y si una sola fallaba se detenía toda la fila
+completa (por eso, de 8 páginas, solo migraban las primeras 4). Ahora
+esa migración corre en segundo plano, cada página se sube de forma
+independiente sin esperar a las demás, y la app se muestra de inmediato
+con lo que ya hay guardado localmente.
+
+### Ronda siguiente (PDF generado desde iPhone: se abre en pestaña nueva en vez de descargarse)
+
+**"NO SIRVEN EN NINGUN LADO, ES UN PDF PLANO QUE NO SIRVEN LOS
+BOTONES"** — aunque ya se había verificado dos veces, con inspección
+directa de los bytes del PDF, que el archivo que genera la app sí trae
+los links correctos, en iPhone seguían sin funcionar. La causa más
+probable es que Safari en iOS, al forzar la descarga de un archivo
+generado en memoria (como hace `pdf.save()`), a veces entrega una copia
+distinta del archivo, sin sus datos interactivos — un problema conocido
+de Safari en iOS, no de la app.
+
+**Solución**: en iPhone (detectado automáticamente), al presionar
+"Descargar PDF" ahora se abre una pestaña nueva de inmediato — antes de
+generar el archivo, para que Safari no la bloquee como ventana
+emergente — con un aviso de "Generando tu PDF…"; en cuanto el PDF está
+listo, esa misma pestaña se navega directo al archivo, usando el visor
+de PDF nativo de Safari en vez de forzar una descarga. Desde ahí los
+links funcionan igual que en cualquier visor de PDF normal, y puedes
+usar el botón de compartir de Safari para guardarlo donde quieras. En
+computadora no cambia nada — sigue descargándose igual que siempre.
+
+Verificado generando un PDF real y confirmando, leyendo los bytes del
+archivo que llega a la pestaña, que es exactamente el mismo PDF válido
+con la anotación de link correcta — mismo resultado que ya se había
+confirmado antes, pero ahora entregado por una ruta que Safari en iOS
+no puede alterar.
