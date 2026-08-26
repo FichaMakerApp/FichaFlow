@@ -436,6 +436,7 @@
     showLibraryPanel: false,
     designerPanelOpen: false,
     storagePanelOpen: false,
+    railMenuOpen: false,
     planoEditor: null, // { src, modelo } while the plano background-eraser modal is open
     designerUnlocked: false,
     designerApplyToAll: false,

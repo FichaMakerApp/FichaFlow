@@ -90,6 +90,14 @@ a{ color:var(--ink); }
 .saved-badge .dot.dot-error{ background:#B33A3A; }
 .saved-badge:has(.dot-error) .txt{ color:#B33A3A; font-weight:600; }
 
+/* Guardar cambios + Modo oscuro stay permanently visible; everything
+   else collapses into .rail-dropdown behind the "☰ Más" toggle. */
+.rail-fixed{ display:flex; flex-direction:column; gap:10px; }
+.rail-dropdown{
+  display:flex; flex-direction:column; gap:14px; padding-top:16px; margin-top:2px;
+  border-top:1px solid var(--stone-line);
+}
+
 .stepper-v{ display:flex; flex-direction:column; gap:4px; }
 .step-btn{
   display:flex; align-items:center; gap:10px; padding:10px 10px; border-radius:var(--radius-s);
@@ -601,6 +609,9 @@ label.btn input[type=file]{ position:absolute; inset:0; opacity:0; cursor:pointe
     align-items:center; gap:10px 16px; padding:14px 16px; border-right:none; border-bottom:1px solid var(--stone-line);
   }
   .rail .brand{ flex:1 1 auto; }
+  .rail .rail-fixed{ flex-direction:row; flex-wrap:wrap; flex:0 0 auto; gap:8px; }
+  .rail .rail-fixed .saved-badge{ flex:1 1 100%; }
+  .rail .rail-dropdown{ flex:1 1 100%; border-top:1px solid var(--stone-line); margin-top:4px; padding-top:12px; }
   .rail .stepper-v{ flex-direction:row; flex-wrap:wrap; flex:1 1 100%; gap:8px; }
   .rail .step-btn{ flex:1 1 auto; justify-content:center; }
   .rail .rail-meta{ display:none; }

@@ -577,7 +577,7 @@
         h("span", { class: "num", text: state.step > s.n ? "✓" : String(s.n) }),
         h("span", { text: s.label }),
       ]);
-      btn.addEventListener("click", function () { state.step = s.n; persistStruct(); });
+      btn.addEventListener("click", function () { state.step = s.n; state.railMenuOpen = false; persistStruct(); });
       stepper.appendChild(btn);
     });
 
@@ -588,7 +588,7 @@
     };
 
     const designerBtn = h("button", { type: "button", class: "btn", style: "width:100%;", text: "🎨 Modo diseñador" });
-    designerBtn.addEventListener("click", openDesignerModal);
+    designerBtn.addEventListener("click", function () { state.railMenuOpen = false; openDesignerModal(); });
 
     const themeBtn = h("button", { type: "button", class: "btn btn-sm", style: "width:100%;" });
     function paintThemeBtn() {
@@ -621,25 +621,38 @@
     });
 
     const storageBtn = h("button", { type: "button", class: "btn btn-sm", style: "width:100%;", text: "📊 Ver almacenamiento" });
-    storageBtn.addEventListener("click", function () { state.storagePanelOpen = true; persistStruct(); });
+    storageBtn.addEventListener("click", function () { state.storagePanelOpen = true; state.railMenuOpen = false; persistStruct(); });
 
-    return h("div", { class: "rail" }, [
+    // Guardar cambios and Modo oscuro stay permanently visible/reachable —
+    // everything else (pasos, almacenamiento, modo diseñador, contadores)
+    // lives behind a collapsible menu instead of always taking up space.
+    const menuBtn = h("button", { type: "button", class: "btn btn-sm rail-menu-toggle", text: state.railMenuOpen ? "✕ Cerrar" : "☰ Más" });
+    menuBtn.addEventListener("click", function () { state.railMenuOpen = !state.railMenuOpen; persistStruct(); });
+
+    const railFixed = h("div", { class: "rail-fixed" }, [savedBadge, saveBtn, themeBtn, menuBtn]);
+
+    const railChildren = [
       h("div", { class: "brand" }, [
         h("div", { class: "name", text: "FichaFlow" }),
         h("div", { class: "sub", text: "Análisis de propiedades" }),
       ]),
-      savedBadge,
-      saveBtn,
-      storageBtn,
-      stepper,
-      designerBtn,
-      themeBtn,
-      h("div", { class: "rail-meta" }, [
-        h("div", { class: "row" }, [h("span", { text: "Fichas" }), railMetaRefs.fichas]),
-        h("div", { class: "row" }, [h("span", { text: "Pines en mapa" }), railMetaRefs.mapas]),
-        h("div", { class: "row" }, [h("span", { text: "Tipo de cambio" }), railMetaRefs.tc]),
-      ]),
-    ]);
+      railFixed,
+    ];
+
+    if (state.railMenuOpen) {
+      railChildren.push(h("div", { class: "rail-dropdown" }, [
+        stepper,
+        storageBtn,
+        designerBtn,
+        h("div", { class: "rail-meta" }, [
+          h("div", { class: "row" }, [h("span", { text: "Fichas" }), railMetaRefs.fichas]),
+          h("div", { class: "row" }, [h("span", { text: "Pines en mapa" }), railMetaRefs.mapas]),
+          h("div", { class: "row" }, [h("span", { text: "Tipo de cambio" }), railMetaRefs.tc]),
+        ]),
+      ]));
+    }
+
+    return h("div", { class: "rail" }, railChildren);
   }
 
   // Nothing else shows that the app auto-saves to the browser on every
