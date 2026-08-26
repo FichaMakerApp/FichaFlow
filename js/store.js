@@ -84,13 +84,16 @@
     "estiloHeaderTitulo", "estiloHeaderPara", "estiloHeaderElaboradoPor",
   ];
 
+  // Shared across every device and every person using the app (Supabase,
+  // not localStorage) — that's the whole point: it should start the same
+  // in the desktop app and on the iPhone link. Kept as an in-memory cache
+  // populated once by Store.init() so defaultFicha()/defaultEstilosGlobales()
+  // — called synchronously all over the place whenever something new is
+  // created — don't need to become async themselves; only the initial load
+  // and explicit save/reset touch the network.
+  let cachedDefaultDesign = null;
   function loadDefaultDesign() {
-    try {
-      const raw = localStorage.getItem(LS_DESIGN);
-      return raw ? JSON.parse(raw) : null;
-    } catch (e) {
-      return null;
-    }
+    return cachedDefaultDesign;
   }
 
   function saveDefaultDesign(doc, ficha) {
@@ -102,16 +105,22 @@
     (ficha.botones || []).forEach(function (b) {
       design.botones.push({ texto: b.texto, color: b.color, estilo: b.estilo });
     });
-    try {
-      localStorage.setItem(LS_DESIGN, JSON.stringify(design));
-    } catch (e) {
-      console.error("No se pudo guardar el diseño predeterminado.", e);
-    }
-    return design;
+    return Sync.saveDefaultDesignRemote(design).then(function () {
+      cachedDefaultDesign = design;
+      return design;
+    }).catch(function (e) {
+      console.error("No se pudo guardar el diseño predeterminado compartido.", e);
+      throw e;
+    });
   }
 
   function resetDefaultDesign() {
-    try { localStorage.removeItem(LS_DESIGN); } catch (e) {}
+    return Sync.resetDefaultDesignRemote().then(function () {
+      cachedDefaultDesign = null;
+    }).catch(function (e) {
+      console.error("No se pudo restablecer el diseño predeterminado compartido.", e);
+      throw e;
+    });
   }
 
   // Deep-clones each saved field onto the target so callers never share a
@@ -414,18 +423,75 @@
     });
   }
 
-  function persistLibrary(lib) {
-    return idbSet(LS_LIB, lib).catch(function (e) {
-      console.error("No se pudo guardar la biblioteca de páginas.", e);
+  // The library is shared (Supabase), not per-device — each saved page is
+  // its own row rather than one big array overwritten wholesale, so you
+  // and whoever else you share this with adding pages at the same time
+  // from different devices never collide. Updates are optimistic (the UI
+  // reflects the change immediately) and roll back if the remote write
+  // fails, with the failure surfaced via console (render-app.js can check
+  // getLastLibraryError() the same way it already does for document saves).
+  let lastLibraryError = null;
+  function getLastLibraryError() { return lastLibraryError; }
+
+  function addLibraryEntry(entry) {
+    state.library.push(entry);
+    notify();
+    return Sync.addLibraryEntryRemote(entry).then(function () {
+      lastLibraryError = null;
+    }).catch(function (e) {
+      console.error("No se pudo guardar en la biblioteca compartida.", e);
+      lastLibraryError = e;
+      const idx = state.library.indexOf(entry);
+      if (idx !== -1) state.library.splice(idx, 1);
+      notify();
+      throw e;
+    });
+  }
+
+  function removeLibraryEntry(id) {
+    const idx = state.library.findIndex(function (e) { return e.id === id; });
+    const removed = idx !== -1 ? state.library.splice(idx, 1)[0] : null;
+    notify();
+    return Sync.removeLibraryEntryRemote(id).then(function () {
+      lastLibraryError = null;
+    }).catch(function (e) {
+      console.error("No se pudo eliminar de la biblioteca compartida.", e);
+      lastLibraryError = e;
+      if (removed && idx !== -1) state.library.splice(idx, 0, removed);
+      notify();
+      throw e;
+    });
+  }
+
+  // One-time migration: the first time this runs after the shared-library
+  // switch, Supabase is empty but IndexedDB may hold real pages saved
+  // locally before this change. Push them up so nothing already saved
+  // goes silently missing, then leave the local copy alone (harmless
+  // leftover, not read again — Supabase is the source of truth from here).
+  function migrateLegacyLibraryIfNeeded(remoteLibrary) {
+    if (remoteLibrary && remoteLibrary.length) return remoteLibrary;
+    return idbGet(LS_LIB).then(function (legacy) {
+      if (!legacy || !legacy.length) return remoteLibrary;
+      return legacy.reduce(function (chain, entry) {
+        return chain.then(function () { return Sync.addLibraryEntryRemote(entry); });
+      }, Promise.resolve()).then(function () {
+        return legacy;
+      }).catch(function (e) {
+        console.error("No se pudo migrar la biblioteca local a la compartida; se queda local por ahora.", e);
+        return legacy;
+      });
+    }).catch(function () {
+      return remoteLibrary;
     });
   }
 
   // ---------- store ----------
-  // document/library start empty and are filled in by init() — reading
-  // them out of IndexedDB is unavoidably async, unlike the old synchronous
-  // localStorage read. Nothing reads state.document until after the first
-  // render, and the first render only happens once init()'s promise
-  // resolves (see main.js), so this gap is never visible to app code.
+  // document/library/defaultDesign start empty and are filled in by init()
+  // — reading them (IndexedDB for the document, Supabase for the shared
+  // library/design) is unavoidably async. Nothing reads state.document
+  // until after the first render, and the first render only happens once
+  // init()'s promise resolves (see main.js), so this gap is never visible
+  // to app code.
   const state = {
     step: 1,
     document: null,
@@ -443,10 +509,38 @@
   };
 
   function init() {
-    return Promise.all([
-      loadFromIdbOrMigrate(LS_DOC, normalizeDocument, defaultDocument),
-      loadFromIdbOrMigrate(LS_LIB, function (v) { return v; }, function () { return []; }),
-    ]).then(function (results) {
+    // defaultDesign has to be cached BEFORE the document loads: a
+    // brand-new document falls back to defaultDocument()/defaultFicha(),
+    // which read the cached design synchronously — loading it in parallel
+    // with the document (instead of before) would race, sometimes seeding
+    // a new document before the shared design arrived.
+    return Sync.loadDefaultDesignRemote().catch(function (e) {
+      console.error("No se pudo cargar el diseño predeterminado compartido.", e);
+      return null;
+    }).then(function (design) {
+      if (design) return design;
+      // Same one-time migration idea as the library: a design saved
+      // locally before this became shared shouldn't just vanish.
+      let legacy = null;
+      try {
+        const raw = localStorage.getItem(LS_DESIGN);
+        legacy = raw ? JSON.parse(raw) : null;
+      } catch (e) {}
+      if (!legacy) return null;
+      return Sync.saveDefaultDesignRemote(legacy).then(function () { return legacy; }).catch(function (e) {
+        console.error("No se pudo migrar el diseño predeterminado local al compartido; se queda local por ahora.", e);
+        return legacy;
+      });
+    }).then(function (design) {
+      cachedDefaultDesign = design;
+      return Promise.all([
+        loadFromIdbOrMigrate(LS_DOC, normalizeDocument, defaultDocument),
+        Sync.loadLibraryRemote().catch(function (e) {
+          console.error("No se pudo cargar la biblioteca compartida.", e);
+          return [];
+        }).then(migrateLegacyLibraryIfNeeded),
+      ]);
+    }).then(function (results) {
       state.document = results[0];
       state.library = results[1];
       state.ready = true;
@@ -474,10 +568,12 @@
   }
 
   function updateLibrary(mutator) {
+    // Legacy generic mutator, kept only so nothing breaks if some call
+    // site still uses it — prefer addLibraryEntry/removeLibraryEntry,
+    // which map to real per-row inserts/deletes instead of resaving the
+    // whole shared list.
     mutator(state);
-    const p = persistLibrary(state.library);
     notify();
-    return p;
   }
 
   // ---------- helpers on state ----------
@@ -517,6 +613,9 @@
     subscribe: subscribe,
     update: update,
     updateLibrary: updateLibrary,
+    addLibraryEntry: addLibraryEntry,
+    removeLibraryEntry: removeLibraryEntry,
+    getLastLibraryError: getLastLibraryError,
     onSaveStatusChange: onSaveStatusChange,
     hasPendingWrites: hasPendingWrites,
     uid: uid,

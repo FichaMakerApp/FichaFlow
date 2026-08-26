@@ -1053,24 +1053,34 @@
     const savedDesign = S.loadDefaultDesign();
     const saveDesignBtn = h("button", { type: "button", class: "btn btn-sm", text: "💾 Guardar como diseño predeterminado" });
     saveDesignBtn.addEventListener("click", function () {
-      S.saveDefaultDesign(doc, ficha);
-      toast("Diseño guardado — las próximas fichas y documentos nuevos arrancan con este look.", 3200);
-      persistStruct();
+      saveDesignBtn.disabled = true;
+      S.saveDefaultDesign(doc, ficha).then(function () {
+        toast("Diseño guardado — se comparte con todos los dispositivos y personas que usan la app.", 3200);
+        persistStruct();
+      }).catch(function () {
+        toast("No se pudo guardar el diseño compartido (revisa tu conexión).", 3200);
+        saveDesignBtn.disabled = false;
+      });
     });
     const designBtnsRow = h("div", { style: "display:flex; gap:8px; flex-wrap:wrap; margin-bottom:6px;" }, [saveDesignBtn]);
     if (savedDesign) {
       const resetDesignBtn = h("button", { type: "button", class: "btn btn-sm btn-danger", text: "↺ Restablecer al diseño de fábrica" });
       resetDesignBtn.addEventListener("click", function () {
-        S.resetDefaultDesign();
-        toast("Se quitó el diseño predeterminado — las próximas fichas nuevas vuelven a arrancar en blanco.", 3200);
-        persistStruct();
+        resetDesignBtn.disabled = true;
+        S.resetDefaultDesign().then(function () {
+          toast("Se quitó el diseño predeterminado compartido — las próximas fichas nuevas vuelven a arrancar en blanco.", 3200);
+          persistStruct();
+        }).catch(function () {
+          toast("No se pudo restablecer el diseño compartido (revisa tu conexión).", 3200);
+          resetDesignBtn.disabled = false;
+        });
       });
       designBtnsRow.appendChild(resetDesignBtn);
     }
     fichaSection.appendChild(designBtnsRow);
     fichaSection.appendChild(h("p", { class: "field-hint", style: "margin-bottom:14px;", text: savedDesign
-      ? "Ya tienes un diseño predeterminado guardado. Guardar de nuevo lo reemplaza con los ajustes de esta ficha."
-      : "Toma los estilos, colores y escalas de ESTA ficha (más los del documento completo, arriba) y los deja como punto de partida para toda ficha o documento nuevo." }));
+      ? "Ya hay un diseño predeterminado guardado, compartido entre todos tus dispositivos y con quien más uses esta app. Guardar de nuevo lo reemplaza con los ajustes de esta ficha."
+      : "Toma los estilos, colores y escalas de ESTA ficha (más los del documento completo, arriba) y los deja como punto de partida para toda ficha o documento nuevo — en cualquier dispositivo, para cualquiera que use esta app." }));
 
     // Everything below follows the same top-to-bottom order things actually
     // appear on the printed ficha: título → botones → cada modelo (nombre,
@@ -1264,8 +1274,12 @@
             });
             const delBtn = h("button", { class: "btn btn-sm btn-danger", type: "button", text: "Eliminar" });
             delBtn.addEventListener("click", function () {
-              state.library.splice(i, 1);
-              S.updateLibrary(function () {});
+              // addLibraryEntry/removeLibraryEntry already notify() on their
+              // own (optimistic update, then confirmed or rolled back) — no
+              // need to also persistStruct() here.
+              S.removeLibraryEntry(entry.id).catch(function () {
+                toast("No se pudo eliminar de la biblioteca compartida (revisa tu conexión).", 3200);
+              });
             });
             return [addBtn, delBtn];
           })()),
@@ -1276,7 +1290,7 @@
 
     return h("div", { class: "panel library-panel" }, [
       h("div", { style: "display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;" }, [
-        h("h2", { text: "Páginas guardadas" }), closeBtn,
+        h("h2", { text: "Páginas guardadas (compartida)" }), closeBtn,
       ]),
       grid,
     ]);
@@ -1342,9 +1356,11 @@
     const saveLibBtn = h("button", { class: "btn btn-sm", type: "button", text: "Guardar en biblioteca" });
     saveLibBtn.addEventListener("click", function () {
       const clone = JSON.parse(JSON.stringify(ficha));
-      S.state.library.push({ id: S.uid(), savedAt: Date.now(), ficha: clone });
-      S.updateLibrary(function () {});
-      toast("Página guardada en la biblioteca.");
+      S.addLibraryEntry({ id: S.uid(), savedAt: Date.now(), ficha: clone }).then(function () {
+        toast("Página guardada en la biblioteca compartida.");
+      }).catch(function () {
+        toast("No se pudo guardar en la biblioteca compartida (revisa tu conexión).", 3200);
+      });
     });
     const delBtn = h("button", { class: "btn btn-sm btn-danger", type: "button", text: "Eliminar ficha" });
     delBtn.addEventListener("click", function () {
