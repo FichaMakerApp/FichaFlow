@@ -17,6 +17,16 @@
   "use strict";
   const h = FichaRender.h;
 
+  // Reads position from either a MouseEvent or a TouchEvent — iOS Safari
+  // doesn't fire mousemove/mouseup from a finger drag, only touch* events,
+  // which carry position in touches/changedTouches instead of directly on
+  // the event.
+  function pointFromEvent(e) {
+    if (e.touches && e.touches.length) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    if (e.changedTouches && e.changedTouches.length) return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
+    return { x: e.clientX, y: e.clientY };
+  }
+
   function segmentedRow(options, value, onChange) {
     const wrap = h("div", { class: "segmented" });
     const btns = options.map(function (opt) {
@@ -221,10 +231,14 @@
 
     let brushActive = false, lastX = 0, lastY = 0;
     let rectActive = false, rectStartClient = null;
+    // Without this, a finger drag on the canvas scrolls/pans the page on
+    // iOS instead of drawing — we handle the gesture ourselves.
+    canvas.style.touchAction = "none";
 
-    canvas.addEventListener("mousedown", function (e) {
+    function onCanvasStart(e) {
       e.preventDefault();
-      const p = toCanvasCoords(e.clientX, e.clientY);
+      const client = pointFromEvent(e);
+      const p = toCanvasCoords(client.x, client.y);
       if (activeTool === "wand") {
         pushUndo();
         magicWandErase(p.x, p.y);
@@ -236,46 +250,57 @@
       } else if (activeTool === "rect") {
         pushUndo();
         rectActive = true;
-        rectStartClient = { x: e.clientX, y: e.clientY };
+        rectStartClient = { x: client.x, y: client.y };
         const rect = canvas.getBoundingClientRect();
         rectPreview.style.display = "block";
-        rectPreview.style.left = (e.clientX - rect.left) + "px";
-        rectPreview.style.top = (e.clientY - rect.top) + "px";
+        rectPreview.style.left = (client.x - rect.left) + "px";
+        rectPreview.style.top = (client.y - rect.top) + "px";
         rectPreview.style.width = "0px";
         rectPreview.style.height = "0px";
       }
-    });
-    document.addEventListener("mousemove", function (e) {
+    }
+    function onCanvasMove(e) {
+      if (!brushActive && !rectActive) return;
+      e.preventDefault();
+      const client = pointFromEvent(e);
       if (brushActive) {
-        const p = toCanvasCoords(e.clientX, e.clientY);
+        const p = toCanvasCoords(client.x, client.y);
         eraseSegment(lastX, lastY, p.x, p.y);
         lastX = p.x; lastY = p.y;
       } else if (rectActive) {
         const rect = canvas.getBoundingClientRect();
         const x1 = rectStartClient.x, y1 = rectStartClient.y;
-        const x2 = Math.max(rect.left, Math.min(rect.right, e.clientX));
-        const y2 = Math.max(rect.top, Math.min(rect.bottom, e.clientY));
+        const x2 = Math.max(rect.left, Math.min(rect.right, client.x));
+        const y2 = Math.max(rect.top, Math.min(rect.bottom, client.y));
         const left = Math.min(x1, x2) - rect.left, top = Math.min(y1, y2) - rect.top;
         rectPreview.style.left = left + "px";
         rectPreview.style.top = top + "px";
         rectPreview.style.width = Math.abs(x2 - x1) + "px";
         rectPreview.style.height = Math.abs(y2 - y1) + "px";
       }
-    });
-    document.addEventListener("mouseup", function (e) {
+    }
+    function onCanvasEnd(e) {
       if (brushActive) { brushActive = false; }
       if (rectActive) {
         rectActive = false;
         rectPreview.style.display = "none";
+        const client = pointFromEvent(e);
         const p1 = toCanvasCoords(rectStartClient.x, rectStartClient.y);
-        const p2 = toCanvasCoords(e.clientX, e.clientY);
+        const p2 = toCanvasCoords(client.x, client.y);
         const x = Math.max(0, Math.min(p1.x, p2.x));
         const y = Math.max(0, Math.min(p1.y, p2.y));
         const w = Math.min(canvas.width, Math.max(p1.x, p2.x)) - x;
         const hgt = Math.min(canvas.height, Math.max(p1.y, p2.y)) - y;
         if (w > 0 && hgt > 0) ctx.clearRect(x, y, w, hgt);
       }
-    });
+    }
+    canvas.addEventListener("mousedown", onCanvasStart);
+    document.addEventListener("mousemove", onCanvasMove);
+    document.addEventListener("mouseup", onCanvasEnd);
+    canvas.addEventListener("touchstart", onCanvasStart, { passive: false });
+    document.addEventListener("touchmove", onCanvasMove, { passive: false });
+    document.addEventListener("touchend", onCanvasEnd);
+    document.addEventListener("touchcancel", onCanvasEnd);
 
     applyBtn.addEventListener("click", function () {
       const finalSrc = canvas.toDataURL("image/png");

@@ -438,9 +438,21 @@
     return { w: Math.max(0, nw * scale - rect.width), h: Math.max(0, nh * scale - rect.height) };
   }
 
-  // Double-click a gallery photo IN THE LIVE PREVIEW (not the small upload
-  // thumbnail in the form) to grab-drag it and adjust which part shows,
-  // without changing its size/crop ratio. Double-clicking again lets go.
+  // Reads the drag position from either a MouseEvent or a TouchEvent, so
+  // drag handlers can stay identical regardless of input device — iOS
+  // Safari (and touch devices generally) don't fire mousemove/mouseup from
+  // a finger drag, only the touch* events, which carry position in
+  // touches/changedTouches instead of directly on the event.
+  function pointFromEvent(e) {
+    if (e.touches && e.touches.length) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    if (e.changedTouches && e.changedTouches.length) return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
+    return { x: e.clientX, y: e.clientY };
+  }
+
+  // Double-click (or double-tap) a gallery photo IN THE LIVE PREVIEW (not
+  // the small upload thumbnail in the form) to grab-drag it and adjust
+  // which part shows, without changing its size/crop ratio. Doing it again
+  // lets go.
   function wireGalleryDblClick(pageEl, ficha) {
     const imgEls = [];
     const mainImg = pageEl.querySelector(".f-gallery-main img");
@@ -460,25 +472,31 @@
         refreshPreview();
       });
       if (!dragging) return;
+      // Without this, iOS treats a finger drag on the image as a page
+      // scroll/pull gesture instead of handing us the touch events.
+      imgEl.style.touchAction = "none";
       let active = false, startX = 0, startY = 0, startPosX = 50, startPosY = 50, overflow = { w: 0, h: 0 };
-      imgEl.addEventListener("mousedown", function (e) {
+      function onStart(e) {
         e.preventDefault();
         active = true;
         imgEl.style.cursor = "grabbing";
-        startX = e.clientX; startY = e.clientY;
+        const p = pointFromEvent(e);
+        startX = p.x; startY = p.y;
         startPosX = g.posX != null ? g.posX : 50;
         startPosY = g.posY != null ? g.posY : 50;
         overflow = dragOverflow(imgEl);
-      });
-      document.addEventListener("mousemove", function (e) {
+      }
+      function onMove(e) {
         if (!active) return;
-        const dxPct = overflow.w > 0 ? ((e.clientX - startX) / overflow.w) * 100 : 0;
-        const dyPct = overflow.h > 0 ? ((e.clientY - startY) / overflow.h) * 100 : 0;
+        e.preventDefault();
+        const p = pointFromEvent(e);
+        const dxPct = overflow.w > 0 ? ((p.x - startX) / overflow.w) * 100 : 0;
+        const dyPct = overflow.h > 0 ? ((p.y - startY) / overflow.h) * 100 : 0;
         g.posX = Math.max(0, Math.min(100, startPosX - dxPct));
         g.posY = Math.max(0, Math.min(100, startPosY - dyPct));
         imgEl.style.objectPosition = g.posX + "% " + g.posY + "%";
-      });
-      document.addEventListener("mouseup", function () {
+      }
+      function onEnd() {
         if (!active) return;
         active = false;
         imgEl.style.cursor = "grab";
@@ -486,7 +504,14 @@
         // and would tear this exact image/listeners out from under an
         // in-progress drag) — still saves, just doesn't self-destruct.
         S.update(function () {}, { silent: true });
-      });
+      }
+      imgEl.addEventListener("mousedown", onStart);
+      document.addEventListener("mousemove", onMove);
+      document.addEventListener("mouseup", onEnd);
+      imgEl.addEventListener("touchstart", onStart, { passive: false });
+      document.addEventListener("touchmove", onMove, { passive: false });
+      document.addEventListener("touchend", onEnd);
+      document.addEventListener("touchcancel", onEnd);
     });
   }
 

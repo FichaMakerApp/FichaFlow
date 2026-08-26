@@ -18,6 +18,16 @@
     reader.readAsDataURL(file);
   }
 
+  // Reads position from either a MouseEvent or a TouchEvent — iOS Safari
+  // doesn't fire mousemove/mouseup from a finger drag, only touch* events,
+  // which carry position in touches/changedTouches instead of directly on
+  // the event.
+  function pointFromEvent(e) {
+    if (e.touches && e.touches.length) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    if (e.changedTouches && e.changedTouches.length) return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
+    return { x: e.clientX, y: e.clientY };
+  }
+
   function pinStyleAttr(p) {
     return "left:" + p.x + "%; top:" + p.y + "%;";
   }
@@ -102,8 +112,10 @@
         const rect = wrap.getBoundingClientRect();
         function clamp(v) { return Math.max(0, Math.min(100, v)); }
         function onMove(ev) {
-          const x = clamp(((ev.clientX - rect.left) / rect.width) * 100);
-          const y = clamp(((ev.clientY - rect.top) / rect.height) * 100);
+          ev.preventDefault();
+          const client = pointFromEvent(ev);
+          const x = clamp(((client.x - rect.left) / rect.width) * 100);
+          const y = clamp(((client.y - rect.top) / rect.height) * 100);
           p.x = x; p.y = y;
           pinEl.style.left = x + "%";
           pinEl.style.top = y + "%";
@@ -111,10 +123,16 @@
         function onUp() {
           document.removeEventListener("mousemove", onMove);
           document.removeEventListener("mouseup", onUp);
+          document.removeEventListener("touchmove", onMove);
+          document.removeEventListener("touchend", onUp);
+          document.removeEventListener("touchcancel", onUp);
           Store.update(function () {}, { silent: true });
         }
         document.addEventListener("mousemove", onMove);
         document.addEventListener("mouseup", onUp);
+        document.addEventListener("touchmove", onMove, { passive: false });
+        document.addEventListener("touchend", onUp);
+        document.addEventListener("touchcancel", onUp);
       }
 
       (mapa.pines || []).forEach(function (p) {
@@ -124,7 +142,9 @@
             style: "background:" + (p.bgColor || "#FFFFFF") + "; color:" + (p.textColor || "#171512") + "; transform:scale(" + ((p.scale || 100) / 100) + ");",
           }),
         ]);
+        pinEl.style.touchAction = "none";
         pinEl.addEventListener("mousedown", function (e) { startDrag(pinEl, p, e); });
+        pinEl.addEventListener("touchstart", function (e) { startDrag(pinEl, p, e); }, { passive: false });
         wrap.appendChild(pinEl);
       });
       wrap.addEventListener("click", function (e) {
