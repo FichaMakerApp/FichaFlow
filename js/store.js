@@ -463,27 +463,42 @@
     });
   }
 
-  // One-time migration: the first time this runs after the shared-library
-  // switch, Supabase is empty but IndexedDB may hold real pages saved
-  // locally before this change. Push them up so nothing already saved
-  // goes silently missing, then leave the local copy alone (harmless
-  // leftover, not read again — Supabase is the source of truth from here).
+  // Migration: IndexedDB may hold real pages saved locally before the
+  // shared-library switch. Reconciles by id (not just "is the remote
+  // empty?") so it's self-healing — safe to run on every boot, and a page
+  // that failed to migrate last time (e.g. one heavy enough to hit a
+  // request-size limit) gets retried without re-uploading everything
+  // else. Each page migrates independently (Promise.all, not a chain) so
+  // one bad/oversized page can never block the rest from going up.
+  let libraryMigrationFailures = [];
   function migrateLegacyLibraryIfNeeded(remoteLibrary) {
-    if (remoteLibrary && remoteLibrary.length) return remoteLibrary;
     return idbGet(LS_LIB).then(function (legacy) {
       if (!legacy || !legacy.length) return remoteLibrary;
-      return legacy.reduce(function (chain, entry) {
-        return chain.then(function () { return Sync.addLibraryEntryRemote(entry); });
-      }, Promise.resolve()).then(function () {
-        return legacy;
-      }).catch(function (e) {
-        console.error("No se pudo migrar la biblioteca local a la compartida; se queda local por ahora.", e);
-        return legacy;
+      const remoteIds = {};
+      (remoteLibrary || []).forEach(function (e) { remoteIds[e.id] = true; });
+      const missing = legacy.filter(function (e) { return !remoteIds[e.id]; });
+      if (!missing.length) return remoteLibrary;
+      return Promise.all(missing.map(function (entry) {
+        return Sync.addLibraryEntryRemote(entry).then(function () {
+          return { ok: true, entry: entry };
+        }).catch(function (e) {
+          console.error("No se pudo migrar una página de la biblioteca local (\"" + ((entry.ficha && entry.ficha.desarrollo) || "sin nombre") + "\").", e);
+          return { ok: false, entry: entry, error: e };
+        });
+      })).then(function (results) {
+        const merged = (remoteLibrary || []).slice();
+        libraryMigrationFailures = [];
+        results.forEach(function (r) {
+          if (r.ok) merged.push(r.entry);
+          else libraryMigrationFailures.push(r.entry);
+        });
+        return merged;
       });
     }).catch(function () {
       return remoteLibrary;
     });
   }
+  function getLibraryMigrationFailures() { return libraryMigrationFailures; }
 
   // ---------- store ----------
   // document/library/defaultDesign start empty and are filled in by init()
@@ -614,6 +629,7 @@
     update: update,
     updateLibrary: updateLibrary,
     addLibraryEntry: addLibraryEntry,
+    getLibraryMigrationFailures: getLibraryMigrationFailures,
     removeLibraryEntry: removeLibraryEntry,
     getLastLibraryError: getLastLibraryError,
     onSaveStatusChange: onSaveStatusChange,
