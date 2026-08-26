@@ -609,8 +609,13 @@ label.btn input[type=file]{ position:absolute; inset:0; opacity:0; cursor:pointe
     align-items:center; gap:10px 16px; padding:14px 16px; border-right:none; border-bottom:1px solid var(--stone-line);
   }
   .rail .brand{ flex:1 1 auto; }
-  .rail .rail-fixed{ flex-direction:row; flex-wrap:wrap; flex:0 0 auto; gap:8px; }
+  .rail .rail-fixed{ flex-direction:row; flex-wrap:wrap; flex:1 1 100%; min-width:0; gap:8px; }
   .rail .rail-fixed .saved-badge{ flex:1 1 100%; }
+  /* These buttons carry an inline width:100% meant for the desktop
+     column layout — inside this row-wrap container that pushes them
+     past the edge of the screen instead of onto their own line, so
+     width:auto + flex-basis takes over here instead. */
+  .rail .rail-fixed > button{ width:auto !important; flex:1 1 100%; }
   .rail .rail-dropdown{ flex:1 1 100%; border-top:1px solid var(--stone-line); margin-top:4px; padding-top:12px; }
   .rail .stepper-v{ flex-direction:row; flex-wrap:wrap; flex:1 1 100%; gap:8px; }
   .rail .step-btn{ flex:1 1 auto; justify-content:center; }
