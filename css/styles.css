@@ -314,7 +314,14 @@ label.btn input[type=file]{ position:absolute; inset:0; opacity:0; cursor:pointe
 .split2-form{ flex:0 0 46%; min-width:0; position:sticky; top:20px; max-height:calc(100vh - 40px); overflow-y:auto; padding-right:4px; }
 .split2-preview{ flex:1; min-width:0; position:sticky; top:20px; max-height:calc(100vh - 40px); overflow-y:auto; }
 @media (max-width:1080px){
-  .split2{ flex-direction:column; }
+  /* align-items:flex-start (set above for the side-by-side desktop row)
+     only governs the vertical axis there — but once flex-direction flips
+     to column here, that same property switches to controlling WIDTH
+     instead, and "start" means "size to content" rather than "fill the
+     row". The live preview's content is the ficha at its real 816px
+     design width, so without this override the whole column — and the
+     scale calculation that reads its width — inherits that overflow. */
+  .split2{ flex-direction:column; align-items:stretch; }
   .split2-preview{ position:static; max-height:none; overflow-y:visible; }
   .split2-form{ flex:1; position:static; max-height:none; overflow-y:visible; }
 }

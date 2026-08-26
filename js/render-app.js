@@ -159,6 +159,24 @@
     return wrap;
   }
 
+  // House style: every free-text field types in caps. Mutates input.value
+  // in place (not just a CSS text-transform) so the actual saved data is
+  // uppercase everywhere it's used — ficha preview, PDF, everywhere — not
+  // just visually in this one box. Restores cursor position afterward, and
+  // skips the reassignment entirely when nothing actually changed case (so
+  // it doesn't jostle the cursor while typing something already all-caps,
+  // e.g. numbers).
+  function uppercaseAsYouType(input) {
+    input.addEventListener("input", function () {
+      const upper = input.value.toUpperCase();
+      if (upper !== input.value) {
+        const start = input.selectionStart, end = input.selectionEnd;
+        input.value = upper;
+        input.setSelectionRange(start, end);
+      }
+    });
+  }
+
   function textField(label, value, onInput, opts) {
     opts = opts || {};
     const input = h(opts.textarea ? "textarea" : "input", {
@@ -166,6 +184,9 @@
     });
     input.value = value || "";
     if (opts.disabled) input.disabled = true;
+    // Links must NOT be uppercased — URLs are case-sensitive past the
+    // domain, and mangling one silently breaks the button it's attached to.
+    if (!opts.noUppercase) uppercaseAsYouType(input);
     input.addEventListener("input", function () { onInput(input.value); });
     return field(label, input, opts.hint);
   }
@@ -1316,7 +1337,9 @@
     modelo.pagos.filas.forEach(function (row) {
       const pctInput = h("input", { class: "input", type: "number" }); pctInput.value = row.pct;
       const conceptoInput = h("input", { class: "input" }); conceptoInput.value = row.concepto;
+      uppercaseAsYouType(conceptoInput);
       const momentoInput = h("input", { class: "input" }); momentoInput.value = row.momento;
+      uppercaseAsYouType(momentoInput);
       const montoMxn = h("input", { class: "input", disabled: "disabled" });
       const montoUsd = h("input", { class: "input", disabled: "disabled" });
 
@@ -1384,7 +1407,7 @@
     if (modelo.mostrarShowroom) {
       container.appendChild(h("div", { class: "grid-2" }, [
         textField("Texto del botón", modelo.showroomTexto, function (v) { modelo.showroomTexto = v; persistSilently(); }, { placeholder: "Showroom" }),
-        textField("Enlace del showroom", modelo.showroomEnlace, function (v) { modelo.showroomEnlace = v; persistSilently(); }),
+        textField("Enlace del showroom", modelo.showroomEnlace, function (v) { modelo.showroomEnlace = v; persistSilently(); }, { noUppercase: true }),
       ]));
     }
 
@@ -1394,6 +1417,7 @@
       const nivelesWrap = h("div", { style: "display:flex; flex-direction:column; gap:8px;" });
       modelo.niveles.forEach(function (n) {
         const nameI = h("input", { class: "input" }); nameI.value = n.nombre;
+        uppercaseAsYouType(nameI);
         const priceI = h("input", { class: "input", type: "number" }); priceI.value = n.precio;
         nameI.addEventListener("input", function () { n.nombre = nameI.value; persistSilently(); });
         priceI.addEventListener("input", function () { n.precio = priceI.value; persistSilently(); });
@@ -1507,7 +1531,7 @@
         // Color lives only in modo diseñador now, not here.
         container.appendChild(h("div", { class: "grid-2" }, [
           textField("Texto del botón", b.texto, function (v) { b.texto = v; persistSilently(); }),
-          textField("Enlace", b.enlace, function (v) { b.enlace = v; persistSilently(); }),
+          textField("Enlace", b.enlace, function (v) { b.enlace = v; persistSilently(); }, { noUppercase: true }),
         ]));
       }
     });

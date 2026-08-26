@@ -18,6 +18,20 @@
     reader.readAsDataURL(file);
   }
 
+  // House style: free-text fields type in caps. Mutates the actual value
+  // (not just a CSS text-transform) so what's saved is uppercase
+  // everywhere it's used, not just visually in this input.
+  function uppercaseAsYouType(input) {
+    input.addEventListener("input", function () {
+      const upper = input.value.toUpperCase();
+      if (upper !== input.value) {
+        const start = input.selectionStart, end = input.selectionEnd;
+        input.value = upper;
+        input.setSelectionRange(start, end);
+      }
+    });
+  }
+
   // Reads position from either a MouseEvent or a TouchEvent — iOS Safari
   // doesn't fire mousemove/mouseup from a finger drag, only touch* events,
   // which carry position in touches/changedTouches instead of directly on
@@ -42,6 +56,7 @@
 
     const etiquetaInput = h("input", { class: "input", placeholder: "Ej. Playa del Carmen, Tulum, Cancún…" });
     etiquetaInput.value = mapa.etiqueta || "";
+    uppercaseAsYouType(etiquetaInput);
     etiquetaInput.addEventListener("input", function () {
       Store.update(function (s) { s.document.mapas[mi].etiqueta = etiquetaInput.value; }, { silent: true });
       refreshPreview();
@@ -163,6 +178,7 @@
       (mapa.pines || []).forEach(function (p, i) {
         const nameInput = h("input", { class: "input", placeholder: "Nombre del proyecto" });
         nameInput.value = p.nombre || "";
+        uppercaseAsYouType(nameInput);
         nameInput.addEventListener("input", function () {
           Store.update(function (s) { s.document.mapas[mi].pines[i].nombre = nameInput.value; }, { silent: true });
           refreshPreview();
