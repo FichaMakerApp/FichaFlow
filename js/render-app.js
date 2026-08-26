@@ -1779,11 +1779,26 @@
     const pdfBtn = h("button", { class: "btn btn-primary", type: "button", text: "⭳ Descargar PDF" });
     pdfBtn.addEventListener("click", function () {
       pdfBtn.disabled = true; pdfBtn.textContent = "Generando…";
-      PdfExport.exportPdf(d).then(function (n) {
-        toast("PDF descargado · " + n + " página(s).");
+      // iOS Safari's forced-download (pdf.save()) can silently hand back a
+      // different, non-interactive copy of the file — the buttons stop
+      // being real links. Opening the PDF directly in a tab uses Safari's
+      // own viewer instead, which renders links correctly. That tab has to
+      // be opened HERE, synchronously inside the click, because Safari
+      // blocks window.open() calls made after async work (like the PDF
+      // generation below) — it gets navigated to the real file once ready.
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+      const preOpenedTab = isIOS ? window.open("", "_blank") : null;
+      if (preOpenedTab) {
+        try {
+          preOpenedTab.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Generando PDF…</title></head><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#EDE9E2;color:#171512;">Generando tu PDF…</body></html>');
+        } catch (e) {}
+      }
+      PdfExport.exportPdf(d, preOpenedTab).then(function (n) {
+        toast(preOpenedTab ? "PDF listo · " + n + " página(s). Ábrelo en la pestaña nueva." : "PDF descargado · " + n + " página(s).");
         pdfBtn.disabled = false; pdfBtn.textContent = "⭳ Descargar PDF";
       }).catch(function (err) {
         console.error(err);
+        if (preOpenedTab && !preOpenedTab.closed) preOpenedTab.close();
         toast("No se pudo generar el PDF. Revisa la consola.");
         pdfBtn.disabled = false; pdfBtn.textContent = "⭳ Descargar PDF";
       });
