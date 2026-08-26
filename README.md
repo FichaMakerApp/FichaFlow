@@ -986,3 +986,30 @@ salta al final). Los campos de "Enlace" (botones, showroom) quedan
 exentos a propósito — una URL en mayúsculas puede dejar de funcionar.
 Verificado campo por campo, incluyendo que "Enlace" conserva
 mayúsculas/minúsculas tal cual se escriben.
+
+### Ronda siguiente (precios con comas y decimales en vivo, links del PDF verificados)
+
+**Precio base, precio de cada nivel y el monto de gastos de cierre ahora
+se escriben con comas y decimales en vivo** — "$" y la moneda quedan
+fijos a los lados del campo (no son parte del texto editable, para que
+el cursor no tenga que pelear con caracteres fijos), y el número en
+medio se formatea mientras escribes: "2555000" se ve "2,555,000" al
+momento, y si agregas un punto, los decimales aparecen solo si
+realmente los escribiste (nunca se rellena con ".00"). Verificado
+escribiendo dígito por dígito, agregando decimales, e insertando un
+dígito a la mitad de un número ya formateado — el cursor se queda en el
+lugar correcto en los tres casos, y el valor real guardado siempre es
+el número plano (sin comas), como antes.
+
+**Investigué el reporte de que los links del PDF no abren desde
+iPhone.** Verifiqué la generación real del PDF de dos formas — primero
+interceptando la llamada real a `pdf.link()` dentro de la exportación
+(se llama correctamente, con la URL y coordenadas correctas), y después
+inspeccionando los bytes crudos de un PDF exportado de verdad, sin
+ninguna modificación de prueba: sí contiene una anotación
+`/Subtype /Link` válida con la URL correcta. El PDF que se genera SÍ
+trae los links funcionando. Si en tu iPhone no abren, lo más probable
+es la app donde lo estás viendo — por ejemplo, el visor de PDF dentro de
+WhatsApp normalmente no soporta links, aunque el PDF sea válido. Prueba
+abriendo el PDF con "Abrir en otra app" (Safari o Archivos) en vez de
+verlo directo dentro de WhatsApp, y avísame si ahí tampoco funciona.
