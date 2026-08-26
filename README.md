@@ -18,6 +18,23 @@ No necesita instalación. Dos formas de usarla:
 No requiere Node, Python ni ninguna instalación. En celular funciona igual
 (la interfaz se acomoda a la pantalla sin necesidad de hacer zoom).
 
+### Desde el iPhone (u otro celular)
+
+La app también está publicada en:
+
+**https://braganmau5-dotcom.github.io/FichaFlow/**
+
+Ábrela en Safari y agrégala a pantalla de inicio (compartir → "Agregar a
+pantalla de inicio") para que se sienta como una app aparte. Cada
+documento que hagas ahí se guarda en el propio celular (en el
+almacenamiento del navegador), separado de lo que tengas en la
+computadora — no se sincronizan solos entre dispositivos.
+
+Cada vez que se hagan cambios al código, hay que subirlos a este mismo
+repositorio de GitHub (`git push`) para que se reflejen en esa
+dirección; abrir `index.html` directo en la computadora sigue
+funcionando igual que siempre y no depende de esto.
+
 ### Abrirla como si fuera un programa aparte (no una pestaña de navegador)
 
 Corre **`Crear acceso directo.bat`** (doble clic) una sola vez — crea un
@@ -889,3 +906,35 @@ anterior). Ambos a 16px ahora.
 
 **El nombre de cada nivel (ej. "PLANTA BAJA DESDE:") ahora va en
 negritas**, igual que ya iba el precio a su lado.
+
+### Ronda siguiente (publicada para iPhone/celular, arrastrar funciona con el dedo)
+
+**La app ya está publicada en internet** (GitHub Pages, gratis) en
+`https://braganmau5-dotcom.github.io/FichaFlow/` — ver la sección "Desde
+el iPhone" más arriba. El código en sí queda visible públicamente en ese
+repositorio (es como funciona GitHub Pages), pero ningún documento real
+sube ahí — cada ficha que hagas se queda guardada solo en el navegador
+del dispositivo donde la hiciste, igual que ya funcionaba en la
+computadora.
+
+**Encontré y corregí un problema real de fondo para celular: varias
+interacciones de "arrastrar" solo estaban programadas con eventos de
+mouse, que un dedo en pantalla táctil no dispara.** Sin este arreglo,
+en un iPhone real (no en la vista de escritorio simulada) se hubieran
+sentido completamente rotas — el dedo no habría movido nada:
+
+- Arrastrar la foto de la galería para ajustar el encuadre (la función
+  agregada hace unas rondas).
+- El pincel y el rectángulo del editor de plano.
+- Arrastrar un pin ya puesto en el mapa para corregir su posición.
+
+Verificado cada uno simulando un toque real (no un clic de mouse) contra
+la versión publicada: los tres respondieron y guardaron la posición
+correctamente.
+
+**Lo que queda pendiente, no arreglado todavía:** reordenar fichas o
+modelos arrastrando las miniaturas tampoco funciona con el dedo (usa
+"drag and drop" nativo del navegador, que tiene la misma limitación).
+Para fichas hay una alternativa ya disponible — los botones ↑/↓ en la
+pantalla de revisión — pero no para modelos ni para el arrastre en la
+barra de arriba. Avisa si quieres que lo resuelva también.
