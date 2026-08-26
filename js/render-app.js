@@ -177,6 +177,72 @@
     });
   }
 
+  // Formats a "digits + at most one dot" string as "1,234,567" or
+  // "1,234,567.89" — decimals only show up when the user actually typed a
+  // decimal point, never padded to .00.
+  function formatMoneyLive(cleaned) {
+    const dotIdx = cleaned.indexOf(".");
+    let intPart = dotIdx === -1 ? cleaned : cleaned.slice(0, dotIdx);
+    const decPart = dotIdx === -1 ? null : cleaned.slice(dotIdx + 1).slice(0, 2);
+    intPart = intPart.replace(/^0+(?=\d)/, "");
+    const withCommas = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    if (decPart === null) return withCommas;
+    return (withCommas || "0") + "." + decPart;
+  }
+
+  // Reformats a money input's text live as you type (commas, decimals only
+  // when present) while keeping the cursor in the right spot — counts
+  // digits before the cursor in the old string, reformats, then walks the
+  // new string to the same digit count instead of just leaving the cursor
+  // wherever a naive reassignment would drop it. Reports the parsed plain
+  // number back via onChange for storage; the "$"/currency around the
+  // input are decoration (see moneyField), not part of the editable text,
+  // so the cursor never has to fight fixed characters.
+  function wireLiveMoneyInput(input, onChange) {
+    function digitsBefore(str, pos) {
+      let n = 0;
+      for (let i = 0; i < pos && i < str.length; i++) if (/[\d.]/.test(str[i])) n++;
+      return n;
+    }
+    function posAfterDigits(str, count) {
+      let n = 0;
+      for (let i = 0; i < str.length; i++) {
+        if (n === count) return i;
+        if (/[\d.]/.test(str[i])) n++;
+      }
+      return str.length;
+    }
+    input.addEventListener("input", function () {
+      const cursor = input.selectionStart;
+      const before = digitsBefore(input.value, cursor);
+      let raw = input.value.replace(/[^\d.]/g, "");
+      const firstDot = raw.indexOf(".");
+      if (firstDot !== -1) raw = raw.slice(0, firstDot + 1) + raw.slice(firstDot + 1).replace(/\./g, "");
+      const formatted = formatMoneyLive(raw);
+      input.value = formatted;
+      const pos = posAfterDigits(formatted, before);
+      input.setSelectionRange(pos, pos);
+      const numeric = raw === "" || raw === "." ? "" : parseFloat(raw);
+      onChange(typeof numeric === "number" && isNaN(numeric) ? "" : numeric);
+    });
+  }
+
+  // A currency field: "$" and the currency code sit outside the editable
+  // text as fixed decoration, while the number in between formats live
+  // with thousands separators as you type.
+  function moneyField(label, value, currency, onInput, opts) {
+    opts = opts || {};
+    const input = h("input", { class: "input money-input", type: "text", inputmode: "decimal", placeholder: "0" });
+    input.value = (value || value === 0) ? formatMoneyLive(String(value)) : "";
+    wireLiveMoneyInput(input, onInput);
+    const group = h("div", { class: "money-input-group" }, [
+      h("span", { class: "money-affix", text: "$" }),
+      input,
+      h("span", { class: "money-affix", text: currency }),
+    ]);
+    return field(label, group, opts.hint);
+  }
+
   function textField(label, value, onInput, opts) {
     opts = opts || {};
     const input = h(opts.textarea ? "textarea" : "input", {
@@ -1387,9 +1453,9 @@
       textField("Habitaciones", modelo.habitaciones, function (v) { modelo.habitaciones = v; persistSilently(); }, { type: "number" }),
       textField("Baños", modelo.banos, function (v) { modelo.banos = v; persistSilently(); }, { type: "number" }),
     ]));
-    container.appendChild(textField("Precio base " + ficha.moneda, modelo.precioBase, function (v) {
+    container.appendChild(moneyField("Precio base", modelo.precioBase, ficha.moneda, function (v) {
       modelo.precioBase = v; persistSilently();
-    }, { type: "number" }));
+    }));
 
     container.appendChild(field("Plano del modelo", planoUploadSlot(modelo),
       "Se sube tal cual, sin editar la imagen. También puedes pegar una imagen copiada: clic en el recuadro y Ctrl+V."));
@@ -1418,13 +1484,12 @@
       modelo.niveles.forEach(function (n) {
         const nameI = h("input", { class: "input" }); nameI.value = n.nombre;
         uppercaseAsYouType(nameI);
-        const priceI = h("input", { class: "input", type: "number" }); priceI.value = n.precio;
         nameI.addEventListener("input", function () { n.nombre = nameI.value; persistSilently(); });
-        priceI.addEventListener("input", function () { n.precio = priceI.value; persistSilently(); });
+        const priceField = moneyField("Precio", n.precio, "MXN", function (v) { n.precio = v; persistSilently(); });
         const rm = h("button", { class: "btn-icon btn-ghost", type: "button", text: "×" });
         rm.addEventListener("click", function () { modelo.niveles.splice(modelo.niveles.indexOf(n), 1); persistStruct(); });
         nivelesWrap.appendChild(h("div", { style: "display:flex; gap:8px; align-items:end;" }, [
-          field("Nivel", nameI), field("Precio MXN", priceI), rm,
+          field("Nivel", nameI), priceField, rm,
         ]));
       });
       const addNivel = h("button", { class: "btn btn-sm", type: "button", text: "＋ Agregar nivel" });
@@ -1510,8 +1575,8 @@
     container.appendChild(toggleRow("Gastos aproximados de cierre", "Panel opcional debajo del esquema de pago, con una leyenda de que es una simulación.", ficha.gastosCierre.activo,
       function (v) { ficha.gastosCierre.activo = v; persistStruct(); }));
     if (ficha.gastosCierre.activo) {
-      container.appendChild(textField("Monto aproximado", ficha.gastosCierre.monto, function (v) { ficha.gastosCierre.monto = v; persistSilently(); },
-        { type: "number", hint: "Déjalo vacío para mostrar solo la línea en blanco a llenar a mano." }));
+      container.appendChild(moneyField("Monto aproximado", ficha.gastosCierre.monto, ficha.moneda, function (v) { ficha.gastosCierre.monto = v; persistSilently(); },
+        { hint: "Déjalo vacío para mostrar solo la línea en blanco a llenar a mano." }));
     }
   }
 
