@@ -1093,3 +1093,38 @@ archivo que llega a la pestaña, que es exactamente el mismo PDF válido
 con la anotación de link correcta — mismo resultado que ya se había
 confirmado antes, pero ahora entregado por una ruta que Safari en iOS
 no puede alterar.
+
+### Ronda siguiente (rediseño "Piedra Caliza", presets de diseño)
+
+**Nueva dirección visual para la ficha**, elegida después de comparar
+varias propuestas de tipografía, paleta y estructura completa: marfil
+cálido, tinta casi negra, sin acento de color saturado, tipografía
+Newsreader (títulos) + Archivo (texto) en vez de Century Gothic.
+Century Gothic sigue disponible como opción alterna en el selector de
+tipografía, por si algún día se quiere de vuelta. Los botones ahora
+llevan un relleno de tinta sólido con texto claro y delgado en vez del
+camel de siempre, con una flechita ("→") en vez del ícono de cursor.
+
+**Modo diseñador tiene una sección nueva, "Presets de diseño"**:
+- Un botón de un clic, "🪄 Piedra Caliza", que aplica toda esta
+  dirección (colores, tipografía, botones) a la ficha y documento que
+  se esté editando en ese momento.
+- "Guardar configuración actual como preset" — le pones un nombre
+  (por ejemplo "FINAL") y guarda todo el look actual para poder
+  aplicarlo después con un clic, en cualquier ficha, sin ajustar nada
+  a mano otra vez. Se comparte entre dispositivos igual que la
+  biblioteca (tabla nueva en Supabase, `design_presets`).
+
+**También se agregó**: tamaño ajustable por separado para el
+"concepto" y el "momento" del esquema de pago (antes tenían un tamaño
+fijo), un interlineado más ajustado en la banda del encabezado
+("Análisis de propiedades" / Para / Elaborado por — se veía con
+demasiado espacio vertical con la tipografía nueva), y un segundo
+selector de color en los botones para el color del texto, aparte del
+fondo.
+
+Nota: el diseño predeterminado que ya tuvieras guardado (colores,
+tipografía) sigue aplicándose como siempre — este cambio actualiza el
+look de fábrica, no borra ninguna personalización previa. Para ver
+"Piedra Caliza" en un documento que ya tiene un diseño guardado,
+hay que aplicarlo desde el preset o restablecer al diseño de fábrica.
