@@ -238,8 +238,8 @@
     const rows = modelo.pagos.filas.map(function (f) {
       const children = [
         h("div", {}, [
-          h("div", { class: "f-pay-concepto", style: "font-size:" + (16 * pagoScale) + "px", text: (C.num(f.pct) || 0) + "% " + (f.concepto || "") }),
-          f.momento ? h("div", { class: "f-pay-momento", style: "font-size:" + (13 * pagoScale) + "px", text: f.momento }) : null,
+          h("div", { class: "f-pay-concepto", style: textStyleCss(ficha.estiloPagoConcepto, 16 * pagoScale), text: (C.num(f.pct) || 0) + "% " + (f.concepto || "") }),
+          f.momento ? h("div", { class: "f-pay-momento", style: textStyleCss(ficha.estiloPagoMomento, 13 * pagoScale), text: f.momento }) : null,
         ]),
       ];
       if (showAmounts) {
@@ -330,8 +330,8 @@
         return h("a", {
           class: "f-btn",
           href: b.enlace || "#",
-          style: "background:" + (b.color || "#2A2621") + ";" + textStyleCss(b.estilo, 15 * gs),
-        }, [document.createTextNode(b.texto || "BOTÓN"), icon("cursor", "f-btn-cursor")]);
+          style: "background:" + (b.color || "#2A2621") + ";color:" + (b.colorTexto || "#F1ECE2") + ";" + textStyleCss(b.estilo, 15 * gs),
+        }, [document.createTextNode(b.texto || "BOTÓN"), h("span", { class: "f-btn-arrow", text: "→" })]);
       })));
     }
 

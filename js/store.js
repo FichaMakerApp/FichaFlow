@@ -32,8 +32,8 @@
     return [defaultGaleriaItem(), defaultGaleriaItem(), defaultGaleriaItem(), defaultGaleriaItem()];
   }
 
-  function defaultTextStyle() {
-    return { sizeDelta: 0, bold: true, italic: false, strike: false };
+  function defaultTextStyle(bold) {
+    return { sizeDelta: 0, bold: bold === undefined ? true : bold, italic: false, strike: false };
   }
 
   function defaultModelo(n) {
@@ -65,7 +65,7 @@
   }
 
   function defaultBoton(texto) {
-    return { texto: texto, enlace: "", visible: true, color: "#2A2621", estilo: defaultTextStyle() };
+    return { texto: texto, enlace: "", visible: true, color: "#2A2621", colorTexto: "#F1ECE2", estilo: defaultTextStyle(false) };
   }
 
   // ---------- default design (a personal template, not tied to any one document) ----------
@@ -77,7 +77,8 @@
   const FICHA_DESIGN_FIELDS = [
     "escalas", "estiloModeloNombre", "estiloModeloPrecio", "estiloModeloPrecioSub", "estiloModeloSpecs",
     "colorPrecioBadge", "estiloPrecioBadge", "colorPagoHead", "estiloPagoHead",
-    "colorShowroom", "estiloShowroom", "estiloTitulo", "estiloEyebrow", "estiloFranja", "estiloPagoMonto", "estiloPagoMontoSub",
+    "colorShowroom", "estiloShowroom", "estiloTitulo", "estiloEyebrow", "estiloFranja",
+    "estiloPagoConcepto", "estiloPagoMomento", "estiloPagoMonto", "estiloPagoMontoSub",
   ];
   const GLOBAL_DESIGN_FIELDS = [
     "paperColor", "paperImage", "textScale", "fontFamily",
@@ -103,7 +104,7 @@
     // Botones vary in count/order per ficha — save by label so a saved
     // "BROCHURE" style always finds its way back onto a new "BROCHURE".
     (ficha.botones || []).forEach(function (b) {
-      design.botones.push({ texto: b.texto, color: b.color, estilo: b.estilo });
+      design.botones.push({ texto: b.texto, color: b.color, colorTexto: b.colorTexto, estilo: b.estilo });
     });
     return compressImagesForSync(design).then(function (compressedDesign) {
       return Sync.saveDefaultDesignRemote(compressedDesign);
@@ -158,13 +159,14 @@
       colorPagoHead: "#DDD4C2", estiloPagoHead: defaultTextStyle(),
       colorShowroom: "#DDD4C2", estiloShowroom: defaultTextStyle(),
       estiloTitulo: defaultTextStyle(), estiloEyebrow: defaultTextStyle(), estiloFranja: defaultTextStyle(),
+      estiloPagoConcepto: defaultTextStyle(), estiloPagoMomento: defaultTextStyle(false),
       estiloPagoMonto: defaultTextStyle(), estiloPagoMontoSub: defaultTextStyle(),
     },
     botones: [
-      { texto: "BROCHURE", color: "#2A2621", estilo: defaultTextStyle() },
-      { texto: "RENDERS", color: "#2A2621", estilo: defaultTextStyle() },
-      { texto: "UBICACIÓN", color: "#2A2621", estilo: defaultTextStyle() },
-      { texto: "SHOWROOM", color: "#2A2621", estilo: defaultTextStyle() },
+      { texto: "BROCHURE", color: "#2A2621", colorTexto: "#F1ECE2", estilo: defaultTextStyle(false) },
+      { texto: "RENDERS", color: "#2A2621", colorTexto: "#F1ECE2", estilo: defaultTextStyle(false) },
+      { texto: "UBICACIÓN", color: "#2A2621", colorTexto: "#F1ECE2", estilo: defaultTextStyle(false) },
+      { texto: "SHOWROOM", color: "#2A2621", colorTexto: "#F1ECE2", estilo: defaultTextStyle(false) },
     ],
   };
   const BUILTIN_DESIGN_PRESETS = [
@@ -194,7 +196,7 @@
     GLOBAL_DESIGN_FIELDS.forEach(function (k) { value.estilosGlobales[k] = doc.estilosGlobales[k]; });
     FICHA_DESIGN_FIELDS.forEach(function (k) { value.ficha[k] = ficha[k]; });
     (ficha.botones || []).forEach(function (b) {
-      value.botones.push({ texto: b.texto, color: b.color, estilo: b.estilo });
+      value.botones.push({ texto: b.texto, color: b.color, colorTexto: b.colorTexto, estilo: b.estilo });
     });
     const preset = { id: uid(), name: name, savedAt: Date.now(), value: value };
     return compressImagesForSync(value).then(function (compressedValue) {
@@ -228,7 +230,7 @@
     applyDesignFields(ficha, value.ficha, FICHA_DESIGN_FIELDS);
     (ficha.botones || []).forEach(function (b) {
       const match = (value.botones || []).find(function (sb) { return sb.texto === b.texto; });
-      if (match) { b.color = match.color; b.estilo = JSON.parse(JSON.stringify(match.estilo)); }
+      if (match) { b.color = match.color; b.colorTexto = match.colorTexto; b.estilo = JSON.parse(JSON.stringify(match.estilo)); }
     });
     return true;
   }
@@ -260,6 +262,8 @@
       estiloTitulo: defaultTextStyle(),
       estiloEyebrow: defaultTextStyle(),
       estiloFranja: defaultTextStyle(),
+      estiloPagoConcepto: defaultTextStyle(),
+      estiloPagoMomento: defaultTextStyle(false),
       estiloPagoMonto: defaultTextStyle(),
       estiloPagoMontoSub: defaultTextStyle(),
       botones: [
@@ -277,7 +281,7 @@
       applyDesignFields(f, saved.ficha, FICHA_DESIGN_FIELDS);
       f.botones.forEach(function (b) {
         const match = (saved.botones || []).find(function (sb) { return sb.texto === b.texto; });
-        if (match) { b.color = match.color; b.estilo = JSON.parse(JSON.stringify(match.estilo)); }
+        if (match) { b.color = match.color; b.colorTexto = match.colorTexto; b.estilo = JSON.parse(JSON.stringify(match.estilo)); }
       });
     }
     return f;
@@ -370,6 +374,8 @@
       if (!f.estiloTitulo) f.estiloTitulo = defaultTextStyle();
       if (!f.estiloEyebrow) f.estiloEyebrow = defaultTextStyle();
       if (!f.estiloFranja) f.estiloFranja = defaultTextStyle();
+      if (!f.estiloPagoConcepto) f.estiloPagoConcepto = defaultTextStyle();
+      if (!f.estiloPagoMomento) f.estiloPagoMomento = defaultTextStyle(false);
       if (!f.estiloPagoMonto) f.estiloPagoMonto = defaultTextStyle();
       if (!f.estiloPagoMontoSub) f.estiloPagoMontoSub = defaultTextStyle();
       if (!f.colorPrecioBadge) f.colorPrecioBadge = "#DDD4C2";
@@ -394,7 +400,8 @@
       if (!f.gastosCierre) f.gastosCierre = { activo: false, monto: "" };
       (f.botones || []).forEach(function (b) {
         if (!b.color) b.color = "#2A2621";
-        if (!b.estilo) b.estilo = defaultTextStyle();
+        if (!b.colorTexto) b.colorTexto = "#F1ECE2";
+        if (!b.estilo) b.estilo = defaultTextStyle(false);
       });
       // Gallery is a fixed 4-slot mosaic now (1 wide + 3 in a row) — pad or
       // trim any older, freely-sized gallery down to exactly that.
