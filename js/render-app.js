@@ -1094,7 +1094,7 @@
     if (visibleBotones.length) {
       visibleBotones.forEach(function (b) {
         const colorInput = h("input", { type: "color", class: "input", style: "max-width:44px; height:34px; padding:2px; flex:0 0 44px;" });
-        colorInput.value = b.color || "#AE9479";
+        colorInput.value = b.color || "#2A2621";
         colorInput.addEventListener("input", function () { b.color = colorInput.value; persistSilently(); });
         fichaSection.appendChild(styleControlsRow("Texto de \"" + (b.texto || "botón") + "\"", b.estilo, colorInput));
       });
@@ -1110,16 +1110,16 @@
     ]);
     modeloSection.appendChild(styleControlsRow("Nombre del modelo", ficha.estiloModeloNombre));
     modeloSection.appendChild(styleControlsRow("Habitaciones, baños y m² (íconos y texto)", ficha.estiloModeloSpecs));
-    modeloSection.appendChild(colorStyleRow("Insignia \"Desde\"", ficha, "colorPrecioBadge", "estiloPrecioBadge", "#AE9479"));
+    modeloSection.appendChild(colorStyleRow("Insignia \"Desde\"", ficha, "colorPrecioBadge", "estiloPrecioBadge", "#DDD4C2"));
     modeloSection.appendChild(styleControlsRow("Precio principal", ficha.estiloModeloPrecio));
     modeloSection.appendChild(styleControlsRow("Precio secundario (otra moneda)", ficha.estiloModeloPrecioSub));
     const showsShowroom = ficha.modelos.some(function (m) { return m.mostrarShowroom; });
     if (showsShowroom) {
-      modeloSection.appendChild(colorStyleRow("Botón \"Showroom\"", ficha, "colorShowroom", "estiloShowroom", "#AE9479"));
+      modeloSection.appendChild(colorStyleRow("Botón \"Showroom\"", ficha, "colorShowroom", "estiloShowroom", "#DDD4C2"));
     } else {
       modeloSection.appendChild(h("p", { class: "field-hint", text: "Activa \"Mostrar botón showroom\" en algún modelo para poder editar su estilo." }));
     }
-    modeloSection.appendChild(colorStyleRow("Barra \"Esquema de pago\"", ficha, "colorPagoHead", "estiloPagoHead", "#AE9479"));
+    modeloSection.appendChild(colorStyleRow("Barra \"Esquema de pago\"", ficha, "colorPagoHead", "estiloPagoHead", "#DDD4C2"));
     modeloSection.appendChild(styleControlsRow("Montos del esquema de pago", ficha.estiloPagoMonto));
     modeloSection.appendChild(styleControlsRow("Montos secundarios (≈ en otra moneda)", ficha.estiloPagoMontoSub));
     modeloSection.appendChild(h("p", { class: "field-hint", style: "margin-top:-6px;", text: "Los montos solo se muestran cuando la ficha NO tiene activa la tabla de precios por nivel." }));

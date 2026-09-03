@@ -65,7 +65,7 @@
   }
 
   function defaultBoton(texto) {
-    return { texto: texto, enlace: "", visible: true, color: "#AE9479", estilo: defaultTextStyle() };
+    return { texto: texto, enlace: "", visible: true, color: "#2A2621", estilo: defaultTextStyle() };
   }
 
   // ---------- default design (a personal template, not tied to any one document) ----------
@@ -153,11 +153,11 @@
       estiloModeloPrecio: defaultTextStyle(),
       estiloModeloPrecioSub: defaultTextStyle(),
       estiloModeloSpecs: defaultTextStyle(),
-      colorPrecioBadge: "#AE9479",
+      colorPrecioBadge: "#DDD4C2",
       estiloPrecioBadge: defaultTextStyle(),
-      colorPagoHead: "#AE9479",
+      colorPagoHead: "#DDD4C2",
       estiloPagoHead: defaultTextStyle(),
-      colorShowroom: "#AE9479",
+      colorShowroom: "#DDD4C2",
       estiloShowroom: defaultTextStyle(),
       franjaActiva: false,
       franjaTexto: "",
@@ -199,7 +199,7 @@
 
   function defaultEstilosGlobales() {
     const eg = {
-      paperColor: "#DFDAD5",
+      paperColor: "#F1ECE2",
       paperImage: null, // dataURL, optional — overrides paperColor as a background image
       textScale: 100,
       fontFamily: "", // "" = original brand typeface — see FichaRender.FONT_OPTIONS
@@ -252,7 +252,7 @@
     if (typeof parsed.designerMode !== "boolean") parsed.designerMode = false;
     if (!parsed.estilosGlobales) parsed.estilosGlobales = defaultEstilosGlobales();
     const eg = parsed.estilosGlobales;
-    if (eg.paperColor === undefined) eg.paperColor = "#DFDAD5";
+    if (eg.paperColor === undefined) eg.paperColor = "#F1ECE2";
     if (eg.paperImage === undefined) eg.paperImage = null;
     if (eg.textScale === undefined) eg.textScale = 100;
     if (typeof eg.fontFamily !== "string") eg.fontFamily = "";
@@ -276,11 +276,11 @@
       if (!f.estiloFranja) f.estiloFranja = defaultTextStyle();
       if (!f.estiloPagoMonto) f.estiloPagoMonto = defaultTextStyle();
       if (!f.estiloPagoMontoSub) f.estiloPagoMontoSub = defaultTextStyle();
-      if (!f.colorPrecioBadge) f.colorPrecioBadge = "#AE9479";
+      if (!f.colorPrecioBadge) f.colorPrecioBadge = "#DDD4C2";
       if (!f.estiloPrecioBadge) f.estiloPrecioBadge = defaultTextStyle();
-      if (!f.colorPagoHead) f.colorPagoHead = "#AE9479";
+      if (!f.colorPagoHead) f.colorPagoHead = "#DDD4C2";
       if (!f.estiloPagoHead) f.estiloPagoHead = defaultTextStyle();
-      if (!f.colorShowroom) f.colorShowroom = "#AE9479";
+      if (!f.colorShowroom) f.colorShowroom = "#DDD4C2";
       if (!f.estiloShowroom) f.estiloShowroom = defaultTextStyle();
       if (!f.escalas) {
         const fromModelo = (f.modelos && f.modelos[0] && f.modelos[0].escalas) || { plano: 100, specs: 100, pago: 100 };
@@ -297,7 +297,7 @@
       if (typeof f.avisoLegal !== "string" || !f.avisoLegal.trim()) f.avisoLegal = DEFAULT_LEGAL;
       if (!f.gastosCierre) f.gastosCierre = { activo: false, monto: "" };
       (f.botones || []).forEach(function (b) {
-        if (!b.color) b.color = "#AE9479";
+        if (!b.color) b.color = "#2A2621";
         if (!b.estilo) b.estilo = defaultTextStyle();
       });
       // Gallery is a fixed 4-slot mosaic now (1 wide + 3 in a row) — pad or

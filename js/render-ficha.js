@@ -30,7 +30,8 @@
   // consistent typeface throughout instead of half the page staying in
   // the old font.
   const FONT_OPTIONS = [
-    { id: "", label: "Original (Century Gothic)", display: '"Century Gothic","Futura","Avenir Next","Poppins","Segoe UI",sans-serif', body: '-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif', mono: '"SF Mono","Cascadia Code",Consolas,"Roboto Mono",monospace' },
+    { id: "", label: "Original (Newsreader + Archivo)", display: '"Newsreader","Georgia",serif', body: '"Archivo",-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif', mono: '"Archivo",-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif' },
+    { id: "century-gothic", label: "Century Gothic (anterior)", display: '"Century Gothic","Futura","Avenir Next","Poppins","Segoe UI",sans-serif', body: '-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif', mono: '"SF Mono","Cascadia Code",Consolas,"Roboto Mono",monospace' },
     { id: "arial", label: "Arial", display: "Arial, Helvetica, sans-serif", body: "Arial, Helvetica, sans-serif", mono: "Arial, Helvetica, sans-serif" },
     { id: "georgia", label: "Georgia", display: 'Georgia, "Times New Roman", serif', body: "Georgia, serif", mono: "Georgia, serif" },
     { id: "times", label: "Times New Roman", display: '"Times New Roman", Times, serif', body: '"Times New Roman", Times, serif', mono: '"Times New Roman", Times, serif' },
@@ -185,7 +186,7 @@
       modelo.mostrarTablaNivel ? null : h("div", { class: "f-price-block" }, [
         h("div", {
           class: "f-price-badge", text: "Desde",
-          style: "background:" + (ficha.colorPrecioBadge || "#AE9479") + ";" + textStyleCss(ficha.estiloPrecioBadge, 15 * specsScale),
+          style: "background:" + (ficha.colorPrecioBadge || "#DDD4C2") + ";" + textStyleCss(ficha.estiloPrecioBadge, 15 * specsScale),
         }),
         h("div", { class: "f-price-big", style: textStyleCss(ficha.estiloModeloPrecio, 24 * specsScale), text: C.fmtMoney(priceMain, priceMainCur) }),
         ficha.mostrarConversion
@@ -195,7 +196,7 @@
       modelo.mostrarShowroom
         ? h("a", {
             class: "f-btn f-showroom", href: modelo.showroomEnlace || "#",
-            style: "background:" + (ficha.colorShowroom || "#AE9479") + ";" + textStyleCss(ficha.estiloShowroom, 15 * specsScale),
+            style: "background:" + (ficha.colorShowroom || "#DDD4C2") + ";" + textStyleCss(ficha.estiloShowroom, 15 * specsScale),
           }, [document.createTextNode(modelo.showroomTexto || "Showroom"), icon("cursor", "f-btn-cursor")])
         : null,
     ]);
@@ -262,7 +263,7 @@
     return h("div", { class: "f-pay-table" }, [
       h("div", {
         class: "f-pay-table-head", text: "Esquema de pago",
-        style: "background:" + (ficha.colorPagoHead || "#AE9479") + ";" + textStyleCss(ficha.estiloPagoHead, 13 * pagoScale),
+        style: "background:" + (ficha.colorPagoHead || "#DDD4C2") + ";" + textStyleCss(ficha.estiloPagoHead, 13 * pagoScale),
       }),
       ...rows,
     ]);
@@ -329,7 +330,7 @@
         return h("a", {
           class: "f-btn",
           href: b.enlace || "#",
-          style: "background:" + (b.color || "#AE9479") + ";" + textStyleCss(b.estilo, 15 * gs),
+          style: "background:" + (b.color || "#2A2621") + ";" + textStyleCss(b.estilo, 15 * gs),
         }, [document.createTextNode(b.texto || "BOTÓN"), icon("cursor", "f-btn-cursor")]);
       })));
     }
@@ -361,7 +362,7 @@
     if (isFirst) nodes.push(renderBrandHeader(doc));
     nodes.push(h("div", { class: "f-body" + (isFirst ? "" : " no-header") }, body));
 
-    const eg = doc.estilosGlobales || { paperColor: "#DFDAD5", textScale: 100 };
+    const eg = doc.estilosGlobales || { paperColor: "#F1ECE2", textScale: 100 };
     const pageStyle = [];
     if (eg.paperColor) pageStyle.push("background-color:" + eg.paperColor);
     if (eg.paperImage) pageStyle.push("background-image:url('" + eg.paperImage + "'); background-size:cover; background-position:top center;");
@@ -370,7 +371,11 @@
     // under `zoom`, causing glyph spacing artifacts across the entire
     // document. Every scalable element above now takes `gs` as an explicit
     // multiplier on its own font-size instead, so nothing here needs zoom.
-    if (eg.fontFamily) {
+    // Always set the three font vars explicitly, even for the default (""
+    // = Newsreader/Archivo) option — eg.fontFamily is "" (falsy) for that
+    // case, and skipping the push then would silently fall back to the
+    // app UI's own --font-display/--font-mono instead of the ficha's.
+    {
       const fo = findFontOption(eg.fontFamily);
       pageStyle.push("--font-display:" + fo.display, "--font-body:" + fo.body, "--font-mono:" + fo.mono);
     }
@@ -417,11 +422,11 @@
       if (i > 0) blocks.push(h("div", { class: "f-rule" }));
       blocks.push(renderMapBlock(mapa, gs));
     });
-    const eg = doc.estilosGlobales || { paperColor: "#DFDAD5", textScale: 100 };
+    const eg = doc.estilosGlobales || { paperColor: "#F1ECE2", textScale: 100 };
     const mapPageStyle = [];
     if (eg.paperColor) mapPageStyle.push("background-color:" + eg.paperColor);
     if (eg.paperImage) mapPageStyle.push("background-image:url('" + eg.paperImage + "'); background-size:cover; background-position:top center;");
-    if (eg.fontFamily) {
+    {
       const fo = findFontOption(eg.fontFamily);
       mapPageStyle.push("--font-display:" + fo.display, "--font-body:" + fo.body, "--font-mono:" + fo.mono);
     }

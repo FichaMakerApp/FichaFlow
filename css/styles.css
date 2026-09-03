@@ -358,11 +358,14 @@ label.btn input[type=file]{ position:absolute; inset:0; opacity:0; cursor:pointe
   /* Re-anchors the shared color tokens to the brand's fixed palette,
      no matter what interface theme (light/dark) is active on :root.
      The ficha is a print document that must always match the client's
-     real template — it does not follow the app's own dark mode. */
-  --ink:#171512; --ink-soft:#5B5347; --ink-faint:#8C8375;
-  --stone:#DFDAD5; --stone-line:#CBC2B5;
-  --surface:#EDE9E2; --surface-raised:#FFFFFF;
-  --accent:#AE9479; --accent-soft:#C7B39C; --accent-wash:#EFE6DA;
+     real template — it does not follow the app's own dark mode.
+     Palette: "Piedra Caliza" — warm ivory/limestone, near-black ink,
+     no saturated accent (badges/table heads use a muted stone tan
+     instead of the old camel; buttons use ink fill — see .f-buttons .f-btn). */
+  --ink:#2A2621; --ink-soft:#766D5F; --ink-faint:#A69C8A;
+  --stone:#F1ECE2; --stone-line:#DDD4C2;
+  --surface:#F5F1E9; --surface-raised:#FBF8F2;
+  --accent:#DDD4C2; --accent-soft:#E8E0CE; --accent-wash:#F5F1E7;
   width:816px; background:var(--stone); color:var(--ink); font-family:var(--font-body);
   padding:0 0 40px; display:flex; flex-direction:column; gap:22px; overflow:hidden;
 }
@@ -473,6 +476,14 @@ label.btn input[type=file]{ position:absolute; inset:0; opacity:0; cursor:pointe
   display:inline-flex; align-items:center; gap:8px; cursor:pointer;
   padding:.7em 1.1em; border-radius:28px; background:var(--accent); color:var(--ink); font-family:var(--font-display);
   font-weight:700; font-size:15px; letter-spacing:.02em; text-transform:uppercase; white-space:nowrap; text-decoration:underline;
+}
+/* Piedra Caliza: the main button row (not the showroom button, which keeps
+   the light muted-accent fill) gets a solid ink fill with light text —
+   thinner weight and a tighter, barely-rounded shape read as more refined
+   than the pill-shaped accent buttons everywhere else. */
+.f-buttons .f-btn{
+  background:var(--ink); color:var(--stone); font-family:var(--font-body); font-weight:300; font-size:13px;
+  letter-spacing:.05em; text-decoration:none; border-radius:2px; padding:.6em 1em;
 }
 
 .f-extras{ display:flex; gap:16px; }
