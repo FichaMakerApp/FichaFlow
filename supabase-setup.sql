@@ -23,8 +23,19 @@ create table if not exists default_design (
   constraint default_design_single_row check (id = 1)
 );
 
+-- Presets con nombre ("Piedra Caliza", "FINAL", etc.) — igual que
+-- library_pages, una fila por preset, para poder guardar varias
+-- configuraciones y alternar entre ellas sin ajustar todo a mano.
+create table if not exists design_presets (
+  id text primary key,
+  name text not null,
+  saved_at bigint not null,
+  value jsonb not null
+);
+
 alter table library_pages enable row level security;
 alter table default_design enable row level security;
+alter table design_presets enable row level security;
 
 -- Acceso abierto para la llave "anon" (la misma que vive en js/sync.js)
 -- — es la llave pública que va en el código de la app, protegida solo
@@ -34,4 +45,7 @@ create policy "anon full access to library_pages" on library_pages
   for all using (true) with check (true);
 
 create policy "anon full access to default_design" on default_design
+  for all using (true) with check (true);
+
+create policy "anon full access to design_presets" on design_presets
   for all using (true) with check (true);

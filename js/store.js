@@ -137,6 +137,102 @@
     });
   }
 
+  // ---------- named design presets ----------
+  // Different from the single "default design" above (which only shapes
+  // brand-new fichas/documents): a preset can be applied directly onto
+  // whatever you're editing right now, and you can keep as many as you
+  // want, shared the same way as the library — save the current look
+  // under a name (e.g. "FINAL"), then flip back to it anytime instead of
+  // re-adjusting every color/font/size by hand. "Piedra Caliza" ships
+  // built in, matching the app's current factory look exactly.
+  const PIEDRA_CALIZA_PRESET = {
+    estilosGlobales: {
+      paperColor: "#F1ECE2", paperImage: null, textScale: 100, fontFamily: "",
+      estiloHeaderTitulo: defaultTextStyle(), estiloHeaderPara: defaultTextStyle(), estiloHeaderElaboradoPor: defaultTextStyle(),
+    },
+    ficha: {
+      escalas: { plano: 100, specs: 100, pago: 100 },
+      estiloModeloNombre: defaultTextStyle(), estiloModeloPrecio: defaultTextStyle(),
+      estiloModeloPrecioSub: defaultTextStyle(), estiloModeloSpecs: defaultTextStyle(),
+      colorPrecioBadge: "#DDD4C2", estiloPrecioBadge: defaultTextStyle(),
+      colorPagoHead: "#DDD4C2", estiloPagoHead: defaultTextStyle(),
+      colorShowroom: "#DDD4C2", estiloShowroom: defaultTextStyle(),
+      estiloTitulo: defaultTextStyle(), estiloEyebrow: defaultTextStyle(), estiloFranja: defaultTextStyle(),
+      estiloPagoMonto: defaultTextStyle(), estiloPagoMontoSub: defaultTextStyle(),
+    },
+    botones: [
+      { texto: "BROCHURE", color: "#2A2621", estilo: defaultTextStyle() },
+      { texto: "RENDERS", color: "#2A2621", estilo: defaultTextStyle() },
+      { texto: "UBICACIÓN", color: "#2A2621", estilo: defaultTextStyle() },
+      { texto: "SHOWROOM", color: "#2A2621", estilo: defaultTextStyle() },
+    ],
+  };
+  const BUILTIN_DESIGN_PRESETS = [
+    { id: "piedra-caliza", name: "Piedra Caliza", builtin: true, value: PIEDRA_CALIZA_PRESET },
+  ];
+
+  // Custom (Supabase-backed) presets only — builtins are always available
+  // locally and never need a network round-trip.
+  let cachedDesignPresets = null;
+  function getDesignPresets() {
+    return BUILTIN_DESIGN_PRESETS.concat(cachedDesignPresets || []);
+  }
+
+  function loadDesignPresets() {
+    return Sync.listDesignPresetsRemote().then(function (rows) {
+      cachedDesignPresets = rows;
+      return getDesignPresets();
+    }).catch(function (e) {
+      console.error("No se pudieron cargar los presets de diseño compartidos.", e);
+      cachedDesignPresets = cachedDesignPresets || [];
+      return getDesignPresets();
+    });
+  }
+
+  function saveDesignPreset(name, doc, ficha) {
+    const value = { estilosGlobales: {}, ficha: {}, botones: [] };
+    GLOBAL_DESIGN_FIELDS.forEach(function (k) { value.estilosGlobales[k] = doc.estilosGlobales[k]; });
+    FICHA_DESIGN_FIELDS.forEach(function (k) { value.ficha[k] = ficha[k]; });
+    (ficha.botones || []).forEach(function (b) {
+      value.botones.push({ texto: b.texto, color: b.color, estilo: b.estilo });
+    });
+    const preset = { id: uid(), name: name, savedAt: Date.now(), value: value };
+    return compressImagesForSync(value).then(function (compressedValue) {
+      return Sync.saveDesignPresetRemote({ id: preset.id, name: preset.name, savedAt: preset.savedAt, value: compressedValue });
+    }).then(function () {
+      cachedDesignPresets = (cachedDesignPresets || []).concat([preset]);
+      return preset;
+    }).catch(function (e) {
+      console.error("No se pudo guardar el preset de diseño.", e);
+      throw e;
+    });
+  }
+
+  function deleteDesignPreset(id) {
+    const prior = cachedDesignPresets || [];
+    cachedDesignPresets = prior.filter(function (p) { return p.id !== id; });
+    return Sync.deleteDesignPresetRemote(id).catch(function (e) {
+      cachedDesignPresets = prior; // roll back the optimistic removal
+      console.error("No se pudo eliminar el preset de diseño.", e);
+      throw e;
+    });
+  }
+
+  // Applies a preset directly onto the document/ficha being edited right
+  // now (mutates in place — caller is responsible for persisting/re-rendering).
+  function applyDesignPreset(id, doc, ficha) {
+    const preset = getDesignPresets().find(function (p) { return p.id === id; });
+    if (!preset) return false;
+    const value = preset.value;
+    applyDesignFields(doc.estilosGlobales, value.estilosGlobales, GLOBAL_DESIGN_FIELDS);
+    applyDesignFields(ficha, value.ficha, FICHA_DESIGN_FIELDS);
+    (ficha.botones || []).forEach(function (b) {
+      const match = (value.botones || []).find(function (sb) { return sb.texto === b.texto; });
+      if (match) { b.color = match.color; b.estilo = JSON.parse(JSON.stringify(match.estilo)); }
+    });
+    return true;
+  }
+
   function defaultFicha() {
     const f = {
       id: uid(),
@@ -718,6 +814,11 @@
     saveDefaultDesign: saveDefaultDesign,
     loadDefaultDesign: loadDefaultDesign,
     resetDefaultDesign: resetDefaultDesign,
+    getDesignPresets: getDesignPresets,
+    loadDesignPresets: loadDesignPresets,
+    saveDesignPreset: saveDesignPreset,
+    deleteDesignPreset: deleteDesignPreset,
+    applyDesignPreset: applyDesignPreset,
     MAX_MODELOS: MAX_MODELOS,
     MAX_MAPAS: MAX_MAPAS,
     DESIGNER_PASSWORD: DESIGNER_PASSWORD,

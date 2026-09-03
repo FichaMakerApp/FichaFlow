@@ -66,6 +66,31 @@
     });
   }
 
+  // design_presets: named, savable "snapshots" of a design (colors, fonts,
+  // sizes) — one row per preset, same shared-across-everyone model as
+  // library_pages, so you can flip between named looks (e.g. "FINAL")
+  // without manually re-adjusting every field.
+  function listDesignPresetsRemote() {
+    return client.from("design_presets").select("*").order("saved_at", { ascending: true }).then(function (res) {
+      if (res.error) throw res.error;
+      return (res.data || []).map(function (row) {
+        return { id: row.id, name: row.name, savedAt: row.saved_at, value: row.value };
+      });
+    });
+  }
+
+  function saveDesignPresetRemote(preset) {
+    return client.from("design_presets").upsert({ id: preset.id, name: preset.name, saved_at: preset.savedAt, value: preset.value }).then(function (res) {
+      if (res.error) throw res.error;
+    });
+  }
+
+  function deleteDesignPresetRemote(id) {
+    return client.from("design_presets").delete().eq("id", id).then(function (res) {
+      if (res.error) throw res.error;
+    });
+  }
+
   window.Sync = {
     loadLibraryRemote: loadLibraryRemote,
     addLibraryEntryRemote: addLibraryEntryRemote,
@@ -73,5 +98,8 @@
     loadDefaultDesignRemote: loadDefaultDesignRemote,
     saveDefaultDesignRemote: saveDefaultDesignRemote,
     resetDefaultDesignRemote: resetDefaultDesignRemote,
+    listDesignPresetsRemote: listDesignPresetsRemote,
+    saveDesignPresetRemote: saveDesignPresetRemote,
+    deleteDesignPresetRemote: deleteDesignPresetRemote,
   };
 })();

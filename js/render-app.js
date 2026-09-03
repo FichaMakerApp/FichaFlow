@@ -21,6 +21,7 @@
   let previewSlot = null;
   let designerPreviewSlot = null;
   let railMetaRefs = null;
+  let designPresetsLoaded = false;
 
   // Interface dark mode — a UI preference, not part of the ficha document,
   // so it gets its own localStorage key instead of living in Store.state.
@@ -649,6 +650,10 @@
     }
     state.designerPanelOpen = true;
     if (!state.designerFichaId && state.document.fichas.length) state.designerFichaId = state.document.fichas[0].id;
+    if (!designPresetsLoaded) {
+      designPresetsLoaded = true;
+      S.loadDesignPresets().then(function () { render(); }).catch(function () {});
+    }
     persistStruct();
   }
 
@@ -1049,6 +1054,62 @@
     }
 
     const ficha = S.getFicha(state.designerFichaId);
+
+    // Presets — apply a whole look (colors, fonts, sizes) to what you're
+    // editing right now with one click, or save the current look under a
+    // name to come back to later. Different from "diseño predeterminado"
+    // below: a preset applies immediately and you can keep several; the
+    // default design only shapes brand-new fichas/documents going forward.
+    const presetsSection = h("div", { class: "modal-section" }, [h("h3", { text: "Presets de diseño" })]);
+    const presetsList = h("div", { style: "display:flex; flex-direction:column; gap:6px; margin-bottom:12px;" });
+    S.getDesignPresets().forEach(function (preset) {
+      const row = h("div", { style: "display:flex; gap:8px; align-items:center;" });
+      const applyBtn = h("button", { type: "button", class: "btn btn-sm", style: "flex:1;", text: "🪄 " + preset.name });
+      applyBtn.addEventListener("click", function () {
+        S.applyDesignPreset(preset.id, doc, ficha);
+        toast("Preset \"" + preset.name + "\" aplicado a esta ficha y al documento.", 3200);
+        persistStruct();
+      });
+      row.appendChild(applyBtn);
+      if (!preset.builtin) {
+        const delBtn = h("button", { type: "button", class: "btn btn-sm btn-danger", text: "🗑" });
+        delBtn.addEventListener("click", function () {
+          if (!window.confirm("¿Eliminar el preset \"" + preset.name + "\"? Esto no afecta ninguna ficha que ya lo tenga aplicado, solo lo quita de la lista.")) return;
+          delBtn.disabled = true;
+          S.deleteDesignPreset(preset.id).then(function () {
+            toast("Preset eliminado.", 2400);
+            persistStruct();
+          }).catch(function () {
+            toast("No se pudo eliminar el preset (revisa tu conexión).", 3200);
+            delBtn.disabled = false;
+          });
+        });
+        row.appendChild(delBtn);
+      }
+      presetsList.appendChild(row);
+    });
+    presetsSection.appendChild(presetsList);
+
+    const presetNameInput = h("input", { type: "text", class: "input", placeholder: "Nombre del preset (por ejemplo, FINAL)" });
+    const savePresetBtn = h("button", { type: "button", class: "btn btn-sm", text: "💾 Guardar configuración actual como preset" });
+    savePresetBtn.addEventListener("click", function () {
+      const name = presetNameInput.value.trim();
+      if (!name) { toast("Ponle un nombre al preset primero."); return; }
+      savePresetBtn.disabled = true;
+      S.saveDesignPreset(name, doc, ficha).then(function () {
+        toast("Preset \"" + name + "\" guardado — se comparte con todos tus dispositivos y con quien más use la app.", 3600);
+        presetNameInput.value = "";
+        savePresetBtn.disabled = false;
+        persistStruct();
+      }).catch(function () {
+        toast("No se pudo guardar el preset (revisa tu conexión).", 3200);
+        savePresetBtn.disabled = false;
+      });
+    });
+    presetsSection.appendChild(field("Guardar como nuevo preset", presetNameInput));
+    presetsSection.appendChild(savePresetBtn);
+    presetsSection.appendChild(h("p", { class: "field-hint", style: "margin-top:8px;", text: "Un preset toma los colores, tipografía y tamaños de ESTA ficha (más el documento completo) y los guarda con nombre para poder aplicarlos después con un clic, en cualquier ficha, sin tener que ajustar todo a mano otra vez." }));
+    controls.appendChild(presetsSection);
 
     const savedDesign = S.loadDefaultDesign();
     const saveDesignBtn = h("button", { type: "button", class: "btn btn-sm", text: "💾 Guardar como diseño predeterminado" });
