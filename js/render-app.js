@@ -1849,24 +1849,23 @@
       pdfBtn.disabled = true; pdfBtn.textContent = "Generando…";
       // iOS Safari's forced-download (pdf.save()) can silently hand back a
       // different, non-interactive copy of the file — the buttons stop
-      // being real links. Opening the PDF directly in a tab uses Safari's
-      // own viewer instead, which renders links correctly. That tab has to
-      // be opened HERE, synchronously inside the click, because Safari
-      // blocks window.open() calls made after async work (like the PDF
-      // generation below) — it gets navigated to the real file once ready.
+      // being real links. Navigating straight to the PDF instead uses
+      // Safari's own viewer, which renders links correctly.
+      // A prior version of this opened a blank tab up front (synchronously,
+      // inside the click) and navigated THAT tab once the file was ready —
+      // it looked right in testing, but Safari's "Block Pop-ups" setting
+      // (ON by default) silently killed the pre-opened tab anyway, so it
+      // fell through to the same broken pdf.save() path. Navigating the
+      // CURRENT tab instead sidesteps the popup blocker entirely — it's a
+      // location change, not a new window, so nothing can block it. The
+      // app's own state is autosaved, so navigating away and back
+      // (Safari's back button) leaves everything intact.
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-      const preOpenedTab = isIOS ? window.open("", "_blank") : null;
-      if (preOpenedTab) {
-        try {
-          preOpenedTab.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Generando PDF…</title></head><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#EDE9E2;color:#171512;">Generando tu PDF…</body></html>');
-        } catch (e) {}
-      }
-      PdfExport.exportPdf(d, preOpenedTab).then(function (n) {
-        toast(preOpenedTab ? "PDF listo · " + n + " página(s). Ábrelo en la pestaña nueva." : "PDF descargado · " + n + " página(s).");
+      PdfExport.exportPdf(d, isIOS).then(function (n) {
+        toast(isIOS ? "PDF listo · " + n + " página(s)." : "PDF descargado · " + n + " página(s).");
         pdfBtn.disabled = false; pdfBtn.textContent = "⭳ Descargar PDF";
       }).catch(function (err) {
         console.error(err);
-        if (preOpenedTab && !preOpenedTab.closed) preOpenedTab.close();
         toast("No se pudo generar el PDF. Revisa la consola.");
         pdfBtn.disabled = false; pdfBtn.textContent = "⭳ Descargar PDF";
       });

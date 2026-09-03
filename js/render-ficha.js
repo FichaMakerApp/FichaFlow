@@ -279,10 +279,17 @@
     modelo.niveles.forEach(function (n) {
       let priceCell;
       if (n.precio) {
-        const col = [h("span", { class: "lt-price", style: "font-size:" + (16 * pagoScale) + "px", text: C.fmtMoney(n.precio, "MXN") })];
+        // n.precio is entered IN the ficha's own currency (ficha.moneda) —
+        // same convention as modelo.precioBase — not always MXN. Otherwise
+        // a USD ficha showed its level prices mislabeled as MXN, with the
+        // "aprox" conversion computed backwards.
+        const conv = C.convertPrice(n.precio, ficha.moneda, doc.exchangeRate);
+        const main = ficha.moneda === "USD" ? conv.usd : conv.mxn;
+        const sub = ficha.moneda === "USD" ? conv.mxn : conv.usd;
+        const subCur = ficha.moneda === "USD" ? "MXN" : "USD";
+        const col = [h("span", { class: "lt-price", style: "font-size:" + (16 * pagoScale) + "px", text: C.fmtMoney(main, ficha.moneda) })];
         if (ficha.mostrarConversion) {
-          const usd = C.convertPrice(n.precio, "MXN", doc.exchangeRate).usd;
-          col.push(h("span", { class: "lt-price-sub", style: "font-size:" + (13 * pagoScale) + "px", text: "APROX. " + C.fmtMoney(usd, "USD") }));
+          col.push(h("span", { class: "lt-price-sub", style: "font-size:" + (13 * pagoScale) + "px", text: "APROX. " + C.fmtMoney(sub, subCur) }));
         }
         priceCell = h("div", { class: "lt-price-col" }, col);
       } else {

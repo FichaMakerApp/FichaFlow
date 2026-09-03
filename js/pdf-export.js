@@ -33,7 +33,7 @@
     });
   }
 
-  function exportPdf(doc, preOpenedTab) {
+  function exportPdf(doc, navigateCurrentTab) {
     if (!window.html2canvas || !window.jspdf) {
       return Promise.reject(new Error("html2canvas/jsPDF no están disponibles (¿sin conexión a internet?)."));
     }
@@ -77,11 +77,14 @@
     return processPage(0).then(function () {
       document.body.removeChild(host);
       if (!pdf) throw new Error("No hay fichas para exportar.");
-      if (preOpenedTab && !preOpenedTab.closed) {
+      if (navigateCurrentTab) {
         // See the comment at the call site (render-app.js) — this avoids
-        // iOS Safari's unreliable forced-download path entirely by using
-        // its own PDF viewer instead, which handles links correctly.
-        preOpenedTab.location.href = pdf.output("bloburl");
+        // both iOS Safari's unreliable forced-download path AND its
+        // popup blocker (which defaults to ON and kills a pre-opened
+        // window.open tab) by navigating the CURRENT tab to the file
+        // instead — Safari's own PDF viewer handles links correctly,
+        // and a same-tab location change is never treated as a popup.
+        window.location.href = pdf.output("bloburl");
       } else {
         const name = (doc.clientName || "fichaflow").trim().replace(/\s+/g, "_");
         pdf.save(name + ".pdf");
