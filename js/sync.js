@@ -26,12 +26,33 @@
 
   const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+  // Fetching every row's full `ficha` (images and all) in one query can
+  // add up to tens of MB combined once the library has several pages —
+  // Supabase's statement timeout then cancels the whole query, and the
+  // library looks empty even though nothing was lost. Two-step instead:
+  // grab the lightweight id/saved_at list first (always fast), then pull
+  // each full row on its own. One oversized or slow row can no longer
+  // sink every other page — its failure is caught and skipped, and
+  // whatever did load still renders.
   function loadLibraryRemote() {
-    return client.from("library_pages").select("*").order("saved_at", { ascending: true }).then(function (res) {
+    return client.from("library_pages").select("id, saved_at").order("saved_at", { ascending: true }).then(function (res) {
       if (res.error) throw res.error;
-      return (res.data || []).map(function (row) {
-        return { id: row.id, savedAt: row.saved_at, ficha: row.ficha };
+      const rows = res.data || [];
+      // One at a time, not Promise.all — firing every row's fetch at once
+      // was itself enough concurrent load to make some of them time out
+      // too (the exact failure this is supposed to avoid). Sequential is
+      // slower but each request lands cleanly on its own.
+      let chain = Promise.resolve();
+      const out = [];
+      rows.forEach(function (row) {
+        chain = chain.then(function () {
+          return client.from("library_pages").select("ficha").eq("id", row.id).maybeSingle().then(function (full) {
+            if (full.error || !full.data) return;
+            out.push({ id: row.id, savedAt: row.saved_at, ficha: full.data.ficha });
+          }).catch(function () {});
+        });
       });
+      return chain.then(function () { return out; });
     });
   }
 

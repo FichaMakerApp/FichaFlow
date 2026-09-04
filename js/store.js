@@ -713,25 +713,34 @@
       return Promise.all([
         loadFromIdbOrMigrate(LS_DOC, normalizeDocument, defaultDocument),
         idbGet(LS_LIB).catch(function () { return null; }),
-        Sync.loadLibraryRemote().catch(function (e) {
-          console.error("No se pudo cargar la biblioteca compartida.", e);
-          return null; // null = couldn't reach it at all, distinct from "reached it and it's empty"
-        }),
       ]);
     }).then(function (results) {
       state.document = results[0];
       const legacyLocal = results[1];
-      const remoteLibrary = results[2];
-      state.library = mergeLibraryForDisplay(legacyLocal, remoteLibrary);
+      // Show the local-only view immediately — never block boot on the
+      // shared library. A library with several heavy pages (each one can
+      // be multiple MB, mostly images) takes a real handful of seconds to
+      // fetch in full; waiting on that here would bring back the exact
+      // "app takes forever to open" complaint that an earlier fix already
+      // solved for the migration step. The remote copy is merged in below,
+      // in the background, whenever it arrives.
+      state.library = mergeLibraryForDisplay(legacyLocal, null);
       state.ready = true;
       if (state.document.fichas.length && !state.activeFichaId) {
         state.activeFichaId = state.document.fichas[0].id;
       }
-      // Sync anything local-only up to the shared library in the
-      // background, AFTER the app is already usable — never block or gate
-      // boot on this (that's what made every open slow while pages kept
-      // re-attempting a broken upload).
-      if (remoteLibrary !== null) migrateLocalOnlyLibraryEntries(legacyLocal, remoteLibrary);
+      Sync.loadLibraryRemote().catch(function (e) {
+        console.error("No se pudo cargar la biblioteca compartida.", e);
+        return null; // null = couldn't reach it at all, distinct from "reached it and it's empty"
+      }).then(function (remoteLibrary) {
+        state.library = mergeLibraryForDisplay(legacyLocal, remoteLibrary);
+        notify();
+        // Sync anything local-only up to the shared library in the
+        // background too — never block or gate boot on this (that's what
+        // made every open slow while pages kept re-attempting a broken
+        // upload).
+        if (remoteLibrary !== null) migrateLocalOnlyLibraryEntries(legacyLocal, remoteLibrary);
+      });
     });
   }
 
