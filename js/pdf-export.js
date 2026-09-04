@@ -77,17 +77,37 @@
     return processPage(0).then(function () {
       document.body.removeChild(host);
       if (!pdf) throw new Error("No hay fichas para exportar.");
+      const name = (doc.clientName || "fichaflow").trim().replace(/\s+/g, "_") + ".pdf";
       if (navigateCurrentTab) {
-        // See the comment at the call site (render-app.js) — this avoids
-        // both iOS Safari's unreliable forced-download path AND its
-        // popup blocker (which defaults to ON and kills a pre-opened
-        // window.open tab) by navigating the CURRENT tab to the file
-        // instead — Safari's own PDF viewer handles links correctly,
-        // and a same-tab location change is never treated as a popup.
+        // Verified (with pdf.js, a real independent parser — not just a
+        // byte grep) that the generated file itself is correct: valid
+        // link annotations, right URLs, sane hit-test rectangles. The
+        // buttons still didn't work after two different delivery
+        // attempts (a pre-opened tab, then a same-tab navigation) because
+        // the problem was never the file — it's that however iOS Safari
+        // ends up presenting a downloaded/navigated-to PDF, it can land
+        // in "Quick Look", which does not support link annotations at
+        // all, no matter how correct the file is.
+        //
+        // The Web Share API sidesteps that entirely: it hands the actual
+        // File to iOS's native share sheet, where you explicitly choose
+        // where it goes (Files, Books, Mail, Messages, AirDrop, a real
+        // PDF viewer) — every one of those opens a real, fully-featured
+        // PDF view where links work, instead of letting Safari guess.
+        const file = new File([pdf.output("blob")], name, { type: "application/pdf" });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          return navigator.share({ files: [file], title: name }).catch(function (err) {
+            if (err && err.name === "AbortError") return; // user closed the share sheet — not a failure
+            // Any other failure (share API acting up) falls back to the
+            // same-tab navigation rather than leaving the user stuck.
+            window.location.href = pdf.output("bloburl");
+          });
+        }
+        // No Web Share support at all (older iOS) — same-tab navigation
+        // is still strictly better than the old forced pdf.save().
         window.location.href = pdf.output("bloburl");
       } else {
-        const name = (doc.clientName || "fichaflow").trim().replace(/\s+/g, "_");
-        pdf.save(name + ".pdf");
+        pdf.save(name);
       }
       return pages.length;
     }).catch(function (err) {

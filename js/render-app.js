@@ -1847,22 +1847,15 @@
     const pdfBtn = h("button", { class: "btn btn-primary", type: "button", text: "⭳ Descargar PDF" });
     pdfBtn.addEventListener("click", function () {
       pdfBtn.disabled = true; pdfBtn.textContent = "Generando…";
-      // iOS Safari's forced-download (pdf.save()) can silently hand back a
-      // different, non-interactive copy of the file — the buttons stop
-      // being real links. Navigating straight to the PDF instead uses
-      // Safari's own viewer, which renders links correctly.
-      // A prior version of this opened a blank tab up front (synchronously,
-      // inside the click) and navigated THAT tab once the file was ready —
-      // it looked right in testing, but Safari's "Block Pop-ups" setting
-      // (ON by default) silently killed the pre-opened tab anyway, so it
-      // fell through to the same broken pdf.save() path. Navigating the
-      // CURRENT tab instead sidesteps the popup blocker entirely — it's a
-      // location change, not a new window, so nothing can block it. The
-      // app's own state is autosaved, so navigating away and back
-      // (Safari's back button) leaves everything intact.
+      // On iOS, PdfExport hands the file to the native share sheet instead
+      // of forcing a download or navigating away — see the comment in
+      // pdf-export.js for why (iOS's "Quick Look" preview, which a plain
+      // download/navigation can land in, ignores PDF links entirely no
+      // matter how correct the file is; the share sheet lets the user pick
+      // a real PDF-capable destination instead).
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
       PdfExport.exportPdf(d, isIOS).then(function (n) {
-        toast(isIOS ? "PDF listo · " + n + " página(s)." : "PDF descargado · " + n + " página(s).");
+        toast(isIOS ? "PDF listo · " + n + " página(s). Elige dónde abrirlo o a quién enviárselo." : "PDF descargado · " + n + " página(s).");
         pdfBtn.disabled = false; pdfBtn.textContent = "⭳ Descargar PDF";
       }).catch(function (err) {
         console.error(err);
