@@ -23,13 +23,26 @@
       const href = a.getAttribute("href");
       if (!href || href === "#") return;
       const r = a.getBoundingClientRect();
-      pdf.link(
-        (r.left - pageRect.left) * scale,
-        (r.top - pageRect.top) * scale,
-        r.width * scale,
-        r.height * scale,
-        { url: href }
-      );
+      const x = (r.left - pageRect.left) * scale;
+      const y = (r.top - pageRect.top) * scale;
+      const w = r.width * scale;
+      const h = r.height * scale;
+      // jsPDF 2.5.1's link() writes the annotation's /Rect as
+      // [x1, flip(y), x2, flip(y+h)] without normalizing which of the two
+      // Y values ends up smaller — since flip() is a page-height flip (a
+      // decreasing function), y1 always comes out BIGGER than y2 whenever
+      // a normal (positive) height is passed in. Lenient PDF renderers
+      // (Chrome's pdf.js, most desktop viewers) silently swap them back;
+      // this was the actual root cause of every "the PDF's buttons don't
+      // work on iPhone" report — the file always had a real, correctly
+      // placed link, but a Y-inverted Rect that at least Apple's own PDF
+      // renderer would not treat as a valid clickable area, no matter
+      // which app or delivery method opened it. Passing the BOTTOM edge
+      // as y and a NEGATIVE height flips jsPDF's own (buggy) math back
+      // the right way round, so the /Rect it writes ends up with y1 < y2
+      // like every other tool expects — verified byte-for-byte before
+      // this was wired in.
+      pdf.link(x, y + h, w, -h, { url: href });
     });
   }
 
