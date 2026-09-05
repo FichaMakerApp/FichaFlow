@@ -45,7 +45,7 @@
     "estiloEyebrow", "estiloTitulo", "estiloFranja", "estiloPagoMonto", "estiloPagoMontoSub",
     "estiloModeloNombre", "estiloModeloPrecio", "estiloModeloPrecioSub", "estiloModeloSpecs",
     "colorPrecioBadge", "estiloPrecioBadge", "colorPrecioBadgeTexto", "colorPagoHead", "estiloPagoHead", "colorPagoHeadTexto",
-    "colorShowroom", "estiloShowroom", "escalas",
+    "colorShowroom", "colorShowroomTexto", "estiloShowroom", "escalas",
     // Previously missing from this list — "aplicar a todas" silently never
     // mirrored the concepto/momento text style to the other fichas even
     // though every other payment/price style did.
@@ -1230,7 +1230,18 @@
     modeloSection.appendChild(sizeOnlyRow("Precio secundario (otra moneda)", ficha.estiloModeloPrecioSub, "La fuente y el color siguen a \"Momento\", más abajo."));
     const showsShowroom = ficha.modelos.some(function (m) { return m.mostrarShowroom; });
     if (showsShowroom) {
-      modeloSection.appendChild(colorStyleRow("Botón \"Showroom\"", ficha, "colorShowroom", "estiloShowroom", "#DDD4C2"));
+      // Same "fondo + texto" pair as the botones above — Showroom now shares
+      // their exact look (dark ink fill, light text, arrow) instead of its
+      // old separate light-accent pill, so it gets the same two-swatch control.
+      const showroomColorInput = h("input", { type: "color", class: "input", title: "Fondo del botón", style: "max-width:44px; height:34px; padding:2px; flex:0 0 44px;" });
+      showroomColorInput.value = ficha.colorShowroom || "#2A2621";
+      showroomColorInput.addEventListener("input", function () { ficha.colorShowroom = showroomColorInput.value; persistSilently(); });
+      const showroomColorTextoInput = h("input", { type: "color", class: "input", title: "Color del texto", style: "max-width:44px; height:34px; padding:2px; flex:0 0 44px;" });
+      showroomColorTextoInput.value = ficha.colorShowroomTexto || "#F1ECE2";
+      showroomColorTextoInput.addEventListener("input", function () { ficha.colorShowroomTexto = showroomColorTextoInput.value; persistSilently(); });
+      const showroomColorsWrap = h("div", { style: "display:flex; gap:6px;" }, [showroomColorInput, showroomColorTextoInput]);
+      modeloSection.appendChild(styleControlsRow("Botón \"Showroom\" (texto)", ficha.estiloShowroom, showroomColorsWrap));
+      modeloSection.appendChild(h("p", { class: "field-hint", style: "margin-top:-6px; margin-bottom:14px;", text: "El primer color es el fondo del botón, el segundo es el color del texto." }));
     } else {
       modeloSection.appendChild(h("p", { class: "field-hint", text: "Activa \"Mostrar botón showroom\" en algún modelo para poder editar su estilo." }));
     }

@@ -120,7 +120,6 @@
     bath: '<svg viewBox="0 0 24 24"><path d="M4 12h16v2a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4v-2Z"/><path d="M4 12V7a2 2 0 0 1 2-2c1 0 1.6.5 1.8 1.2M6 18v2M18 18v2"/></svg>',
     expand: '<svg viewBox="0 0 24 24"><rect x="4" y="7" width="12" height="12"/><path d="M13 3h7v7M20 3l-8 8"/></svg>',
     pin: '<svg viewBox="0 0 24 24"><path d="M12 21s7-6.5 7-12a7 7 0 0 0-14 0c0 5.5 7 12 7 12Z"/><circle cx="12" cy="9" r="2.3"/></svg>',
-    cursor: '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M4 3l16 6.5-6.7 2.2L11 18z"/></svg>',
   };
   function icon(name, extraClass, sizePx) {
     const attrs = { class: "f-icon" + (extraClass ? " " + extraClass : ""), html: ICONS[name] || "" };
@@ -214,11 +213,14 @@
           ? h("div", { class: "f-price-sub", style: textStyleCssFollowing(ficha.estiloModeloPrecioSub, ficha.estiloPagoMomento, 16 * specsScale, ficha.colorPagoMomento), text: "APROX. " + C.fmtMoney(priceSub, priceSubCur) })
           : null,
       ]),
+      // Same look as BROCHURE/RENDERS/UBICACIÓN (dark fill, light text,
+      // arrow) — Showroom used to keep the older light-accent pill with a
+      // cursor icon; now it's just another button in that same family.
       modelo.mostrarShowroom
         ? h("a", {
             class: "f-btn f-showroom", href: modelo.showroomEnlace || "#",
-            style: "background:" + (ficha.colorShowroom || "#DDD4C2") + ";" + textStyleCss(ficha.estiloShowroom, 15 * specsScale),
-          }, [document.createTextNode(modelo.showroomTexto || "Showroom"), icon("cursor", "f-btn-cursor")])
+            style: "background:" + (ficha.colorShowroom || "#2A2621") + ";color:" + (ficha.colorShowroomTexto || "#F1ECE2") + ";" + textStyleCss(ficha.estiloShowroom, 15 * specsScale),
+          }, [document.createTextNode(modelo.showroomTexto || "Showroom"), h("span", { class: "f-btn-arrow", text: "→" })])
         : null,
     ]);
 

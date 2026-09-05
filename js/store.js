@@ -77,7 +77,7 @@
   const FICHA_DESIGN_FIELDS = [
     "escalas", "estiloModeloNombre", "estiloModeloPrecio", "estiloModeloPrecioSub", "estiloModeloSpecs",
     "colorPrecioBadge", "estiloPrecioBadge", "colorPrecioBadgeTexto", "colorPagoHead", "estiloPagoHead", "colorPagoHeadTexto",
-    "colorShowroom", "estiloShowroom", "estiloTitulo", "estiloEyebrow", "estiloFranja",
+    "colorShowroom", "colorShowroomTexto", "estiloShowroom", "estiloTitulo", "estiloEyebrow", "estiloFranja",
     "estiloPagoConcepto", "colorPagoConcepto", "estiloPagoMomento", "colorPagoMomento",
     "estiloPagoMonto", "estiloPagoMontoSub",
   ];
@@ -158,7 +158,7 @@
       estiloModeloPrecioSub: defaultTextStyle(), estiloModeloSpecs: defaultTextStyle(),
       colorPrecioBadge: "#DDD4C2", estiloPrecioBadge: defaultTextStyle(), colorPrecioBadgeTexto: "#2A2621",
       colorPagoHead: "#DDD4C2", estiloPagoHead: defaultTextStyle(), colorPagoHeadTexto: "#2A2621",
-      colorShowroom: "#DDD4C2", estiloShowroom: defaultTextStyle(),
+      colorShowroom: "#2A2621", colorShowroomTexto: "#F1ECE2", estiloShowroom: defaultTextStyle(),
       estiloTitulo: defaultTextStyle(), estiloEyebrow: defaultTextStyle(), estiloFranja: defaultTextStyle(),
       estiloPagoConcepto: defaultTextStyle(), colorPagoConcepto: "#2A2621",
       estiloPagoMomento: defaultTextStyle(false), colorPagoMomento: "#766D5F",
@@ -263,7 +263,8 @@
       colorPagoHead: "#DDD4C2",
       estiloPagoHead: defaultTextStyle(),
       colorPagoHeadTexto: "#2A2621",
-      colorShowroom: "#DDD4C2",
+      colorShowroom: "#2A2621",
+      colorShowroomTexto: "#F1ECE2",
       estiloShowroom: defaultTextStyle(),
       franjaActiva: false,
       franjaTexto: "",
@@ -294,6 +295,13 @@
         const match = (saved.botones || [])[i];
         if (match) { b.color = match.color; b.colorTexto = match.colorTexto; b.estilo = JSON.parse(JSON.stringify(match.estilo)); }
       });
+      // A "diseño predeterminado" saved before Showroom's restyle still
+      // carries the old light-accent color — the same one-time upgrade
+      // normalizeDocument() applies to existing fichas, so a brand-new
+      // ficha doesn't quietly bring the old look back until someone
+      // re-saves the default design by hand.
+      if (!f.colorShowroom || f.colorShowroom === "#DDD4C2") f.colorShowroom = "#2A2621";
+      if (!f.colorShowroomTexto) f.colorShowroomTexto = "#F1ECE2";
     }
     return f;
   }
@@ -397,7 +405,14 @@
       if (!f.colorPagoHeadTexto) f.colorPagoHeadTexto = "#2A2621";
       if (!f.colorPagoConcepto) f.colorPagoConcepto = "#2A2621";
       if (!f.colorPagoMomento) f.colorPagoMomento = "#766D5F";
-      if (!f.colorShowroom) f.colorShowroom = "#DDD4C2";
+      // "#DDD4C2" was the OLD factory default (light accent pill, matching
+      // the badge/header bars) — upgrading it here (not just backfilling a
+      // missing value) is what makes existing fichas pick up the new
+      // dark-ink look that now matches BROCHURE/RENDERS/UBICACIÓN, instead
+      // of only new ones. A showroom color someone actually chose on
+      // purpose (anything other than that old default) is left alone.
+      if (!f.colorShowroom || f.colorShowroom === "#DDD4C2") f.colorShowroom = "#2A2621";
+      if (!f.colorShowroomTexto) f.colorShowroomTexto = "#F1ECE2";
       if (!f.estiloShowroom) f.estiloShowroom = defaultTextStyle();
       if (!f.escalas) {
         const fromModelo = (f.modelos && f.modelos[0] && f.modelos[0].escalas) || { plano: 100, specs: 100, pago: 100 };
