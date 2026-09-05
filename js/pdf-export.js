@@ -9,6 +9,22 @@
 
   function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
 
+  // Waits for every web font actually in use (Newsreader/Archivo/
+  // Montserrat/etc., loaded from Google Fonts) to finish downloading.
+  // A fixed short delay isn't enough on a slow connection — if a page
+  // gets captured while still showing a fallback font, its baked-in
+  // image uses one set of line heights/wrapping while the link
+  // annotations (measured right after, once the real font has swapped
+  // in) end up positioned for a DIFFERENT layout — a real, sometimes
+  // large mismatch between the button in the image and where its link
+  // actually sits, worse the further down the page it is. document.
+  // fonts.ready resolves once loading has actually settled either way,
+  // so this never blocks indefinitely even if a font request fails.
+  function waitForFonts() {
+    if (!document.fonts || !document.fonts.ready) return Promise.resolve();
+    return document.fonts.ready.catch(function () {});
+  }
+
   // html2canvas flattens the whole page to pixels, so the <a href> buttons
   // (BROCHURE, RENDERS, UBICACIÓN, SHOWROOM) still *look* clickable in the
   // embedded image but have no real link behind them. This measures each
@@ -65,7 +81,13 @@
       if (i >= pages.length) return Promise.resolve();
       host.innerHTML = "";
       host.appendChild(pages[i]);
+      // The short fixed wait gives the browser a tick to notice the newly
+      // inserted text and kick off any font requests it needs; waiting on
+      // fonts.ready after that is what actually guarantees those requests
+      // (not just a fixed amount of time) have settled before capture.
       return wait(60).then(function () {
+        return waitForFonts();
+      }).then(function () {
         return window.html2canvas(pages[i], { scale: 3, useCORS: true, backgroundColor: "#ffffff" });
       }).then(function (canvas) {
         const imgData = canvas.toDataURL("image/jpeg", 0.98);
