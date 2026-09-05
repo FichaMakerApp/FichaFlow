@@ -76,9 +76,10 @@
   // document, so it survives "Nuevo documento" and applies across the board.
   const FICHA_DESIGN_FIELDS = [
     "escalas", "estiloModeloNombre", "estiloModeloPrecio", "estiloModeloPrecioSub", "estiloModeloSpecs",
-    "colorPrecioBadge", "estiloPrecioBadge", "colorPagoHead", "estiloPagoHead",
+    "colorPrecioBadge", "estiloPrecioBadge", "colorPrecioBadgeTexto", "colorPagoHead", "estiloPagoHead", "colorPagoHeadTexto",
     "colorShowroom", "estiloShowroom", "estiloTitulo", "estiloEyebrow", "estiloFranja",
-    "estiloPagoConcepto", "estiloPagoMomento", "estiloPagoMonto", "estiloPagoMontoSub",
+    "estiloPagoConcepto", "colorPagoConcepto", "estiloPagoMomento", "colorPagoMomento",
+    "estiloPagoMonto", "estiloPagoMontoSub",
   ];
   const GLOBAL_DESIGN_FIELDS = [
     "paperColor", "paperImage", "textScale", "fontFamily",
@@ -155,11 +156,12 @@
       escalas: { plano: 100, specs: 100, pago: 100 },
       estiloModeloNombre: defaultTextStyle(), estiloModeloPrecio: defaultTextStyle(),
       estiloModeloPrecioSub: defaultTextStyle(), estiloModeloSpecs: defaultTextStyle(),
-      colorPrecioBadge: "#DDD4C2", estiloPrecioBadge: defaultTextStyle(),
-      colorPagoHead: "#DDD4C2", estiloPagoHead: defaultTextStyle(),
+      colorPrecioBadge: "#DDD4C2", estiloPrecioBadge: defaultTextStyle(), colorPrecioBadgeTexto: "#2A2621",
+      colorPagoHead: "#DDD4C2", estiloPagoHead: defaultTextStyle(), colorPagoHeadTexto: "#2A2621",
       colorShowroom: "#DDD4C2", estiloShowroom: defaultTextStyle(),
       estiloTitulo: defaultTextStyle(), estiloEyebrow: defaultTextStyle(), estiloFranja: defaultTextStyle(),
-      estiloPagoConcepto: defaultTextStyle(), estiloPagoMomento: defaultTextStyle(false),
+      estiloPagoConcepto: defaultTextStyle(), colorPagoConcepto: "#2A2621",
+      estiloPagoMomento: defaultTextStyle(false), colorPagoMomento: "#766D5F",
       estiloPagoMonto: defaultTextStyle(), estiloPagoMontoSub: defaultTextStyle(),
     },
     botones: [
@@ -228,8 +230,12 @@
     const value = preset.value;
     applyDesignFields(doc.estilosGlobales, value.estilosGlobales, GLOBAL_DESIGN_FIELDS);
     applyDesignFields(ficha, value.ficha, FICHA_DESIGN_FIELDS);
-    (ficha.botones || []).forEach(function (b) {
-      const match = (value.botones || []).find(function (sb) { return sb.texto === b.texto; });
+    // Matched by POSITION, not by label: botones keep a fixed slot order
+    // (BROCHURE, RENDERS, UBICACIÓN...) but the label itself is a free-text
+    // field the user can rename per ficha, so matching by texto silently
+    // skipped any button whose wording didn't match byte-for-byte.
+    (ficha.botones || []).forEach(function (b, i) {
+      const match = (value.botones || [])[i];
       if (match) { b.color = match.color; b.colorTexto = match.colorTexto; b.estilo = JSON.parse(JSON.stringify(match.estilo)); }
     });
     return true;
@@ -253,8 +259,10 @@
       estiloModeloSpecs: defaultTextStyle(),
       colorPrecioBadge: "#DDD4C2",
       estiloPrecioBadge: defaultTextStyle(),
+      colorPrecioBadgeTexto: "#2A2621",
       colorPagoHead: "#DDD4C2",
       estiloPagoHead: defaultTextStyle(),
+      colorPagoHeadTexto: "#2A2621",
       colorShowroom: "#DDD4C2",
       estiloShowroom: defaultTextStyle(),
       franjaActiva: false,
@@ -263,7 +271,9 @@
       estiloEyebrow: defaultTextStyle(),
       estiloFranja: defaultTextStyle(),
       estiloPagoConcepto: defaultTextStyle(),
+      colorPagoConcepto: "#2A2621",
       estiloPagoMomento: defaultTextStyle(false),
+      colorPagoMomento: "#766D5F",
       estiloPagoMonto: defaultTextStyle(),
       estiloPagoMontoSub: defaultTextStyle(),
       botones: [
@@ -279,8 +289,9 @@
     const saved = loadDefaultDesign();
     if (saved) {
       applyDesignFields(f, saved.ficha, FICHA_DESIGN_FIELDS);
-      f.botones.forEach(function (b) {
-        const match = (saved.botones || []).find(function (sb) { return sb.texto === b.texto; });
+      // Matched by position — see the same note in applyDesignPreset().
+      f.botones.forEach(function (b, i) {
+        const match = (saved.botones || [])[i];
         if (match) { b.color = match.color; b.colorTexto = match.colorTexto; b.estilo = JSON.parse(JSON.stringify(match.estilo)); }
       });
     }
@@ -380,8 +391,12 @@
       if (!f.estiloPagoMontoSub) f.estiloPagoMontoSub = defaultTextStyle();
       if (!f.colorPrecioBadge) f.colorPrecioBadge = "#DDD4C2";
       if (!f.estiloPrecioBadge) f.estiloPrecioBadge = defaultTextStyle();
+      if (!f.colorPrecioBadgeTexto) f.colorPrecioBadgeTexto = "#2A2621";
       if (!f.colorPagoHead) f.colorPagoHead = "#DDD4C2";
       if (!f.estiloPagoHead) f.estiloPagoHead = defaultTextStyle();
+      if (!f.colorPagoHeadTexto) f.colorPagoHeadTexto = "#2A2621";
+      if (!f.colorPagoConcepto) f.colorPagoConcepto = "#2A2621";
+      if (!f.colorPagoMomento) f.colorPagoMomento = "#766D5F";
       if (!f.colorShowroom) f.colorShowroom = "#DDD4C2";
       if (!f.estiloShowroom) f.estiloShowroom = defaultTextStyle();
       if (!f.escalas) {

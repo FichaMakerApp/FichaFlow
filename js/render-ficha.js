@@ -96,6 +96,24 @@
     return parts.join(";");
   }
 
+  // Precio principal/secundario deliberately don't get their own negrita/
+  // cursiva/tachado/color anymore — they follow whatever "Concepto"/
+  // "Momento" (the payment table's own labels) are set to, so the two
+  // always read as one matching system instead of drifting apart. Only the
+  // SIZE stays independent (own sizeDelta), since prices and labels aren't
+  // meant to be the same size.
+  function textStyleCssFollowing(ownSizeStyle, followedFontStyle, baseSizePx, color) {
+    const merged = {
+      sizeDelta: (ownSizeStyle && ownSizeStyle.sizeDelta) || 0,
+      bold: !!(followedFontStyle && followedFontStyle.bold),
+      italic: !!(followedFontStyle && followedFontStyle.italic),
+      strike: !!(followedFontStyle && followedFontStyle.strike),
+    };
+    let css = textStyleCss(merged, baseSizePx);
+    if (color) css += ";color:" + color;
+    return css;
+  }
+
   // Minimal line-art icons matching the reference template's style.
   const ICONS = {
     bed: '<svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="7" rx="1"/><path d="M3 18v2M21 18v2M5 11V8a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3"/></svg>',
@@ -186,11 +204,14 @@
       modelo.mostrarTablaNivel ? null : h("div", { class: "f-price-block" }, [
         h("div", {
           class: "f-price-badge", text: "Desde",
-          style: "background:" + (ficha.colorPrecioBadge || "#DDD4C2") + ";" + textStyleCss(ficha.estiloPrecioBadge, 15 * specsScale),
+          style: "background:" + (ficha.colorPrecioBadge || "#DDD4C2") + ";color:" + (ficha.colorPrecioBadgeTexto || "#2A2621") + ";" + textStyleCss(ficha.estiloPrecioBadge, 15 * specsScale),
         }),
-        h("div", { class: "f-price-big", style: textStyleCss(ficha.estiloModeloPrecio, 24 * specsScale), text: C.fmtMoney(priceMain, priceMainCur) }),
+        // Font (negrita/cursiva/tachado) and color mirror "Concepto"/
+        // "Momento" from the payment table on purpose — see
+        // textStyleCssFollowing — only the size stays its own.
+        h("div", { class: "f-price-big", style: textStyleCssFollowing(ficha.estiloModeloPrecio, ficha.estiloPagoConcepto, 24 * specsScale, ficha.colorPagoConcepto), text: C.fmtMoney(priceMain, priceMainCur) }),
         ficha.mostrarConversion
-          ? h("div", { class: "f-price-sub", style: textStyleCss(ficha.estiloModeloPrecioSub, 16 * specsScale), text: "APROX. " + C.fmtMoney(priceSub, priceSubCur) })
+          ? h("div", { class: "f-price-sub", style: textStyleCssFollowing(ficha.estiloModeloPrecioSub, ficha.estiloPagoMomento, 16 * specsScale, ficha.colorPagoMomento), text: "APROX. " + C.fmtMoney(priceSub, priceSubCur) })
           : null,
       ]),
       modelo.mostrarShowroom
@@ -238,8 +259,8 @@
     const rows = modelo.pagos.filas.map(function (f) {
       const children = [
         h("div", {}, [
-          h("div", { class: "f-pay-concepto", style: textStyleCss(ficha.estiloPagoConcepto, 16 * pagoScale), text: (C.num(f.pct) || 0) + "% " + (f.concepto || "") }),
-          f.momento ? h("div", { class: "f-pay-momento", style: textStyleCss(ficha.estiloPagoMomento, 13 * pagoScale), text: f.momento }) : null,
+          h("div", { class: "f-pay-concepto", style: textStyleCss(ficha.estiloPagoConcepto, 16 * pagoScale) + ";color:" + (ficha.colorPagoConcepto || "#2A2621"), text: (C.num(f.pct) || 0) + "% " + (f.concepto || "") }),
+          f.momento ? h("div", { class: "f-pay-momento", style: textStyleCss(ficha.estiloPagoMomento, 13 * pagoScale) + ";color:" + (ficha.colorPagoMomento || "#766D5F"), text: f.momento }) : null,
         ]),
       ];
       if (showAmounts) {
@@ -263,7 +284,7 @@
     return h("div", { class: "f-pay-table" }, [
       h("div", {
         class: "f-pay-table-head", text: "Esquema de pago",
-        style: "background:" + (ficha.colorPagoHead || "#DDD4C2") + ";" + textStyleCss(ficha.estiloPagoHead, 13 * pagoScale),
+        style: "background:" + (ficha.colorPagoHead || "#DDD4C2") + ";color:" + (ficha.colorPagoHeadTexto || "#2A2621") + ";" + textStyleCss(ficha.estiloPagoHead, 13 * pagoScale),
       }),
       ...rows,
     ]);
@@ -344,9 +365,16 @@
 
     body.push(h("div", { class: "f-rule" }));
 
-    // Up to 10 modelos, each stacked in the same full block — never side by side.
+    // Up to 10 modelos, each stacked in the same full block — never side by
+    // side. Past 2 modelos on one page, a plain hairline (same weight as
+    // every other divider on the page) reads as too weak to tell where one
+    // modelo ends and the next begins — the page turns into one dense wall
+    // of specs/precio/tabla-de-pago. A heavier divider only between
+    // modelos (never used for the title/botones/franja rules) gives the
+    // eye an actual break in that specific case.
+    const modelDividerClass = ficha.modelos.length > 2 ? "f-rule f-rule-model" : "f-rule";
     ficha.modelos.forEach(function (m, i) {
-      if (i > 0) body.push(h("div", { class: "f-rule" }));
+      if (i > 0) body.push(h("div", { class: modelDividerClass }));
       body.push(renderModelBlock(ficha, m, doc, gs));
     });
 

@@ -388,8 +388,15 @@ label.btn input[type=file]{ position:absolute; inset:0; opacity:0; cursor:pointe
 
 .f-eyebrow{ font-size:13.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-soft); font-family:var(--font-display); font-weight:700; }
 .f-h1{ font-family:var(--font-display); font-weight:700; font-size:34px; letter-spacing:.002em; }
-.f-title-block{ text-align:center; display:flex; flex-direction:column; gap:6px; align-items:center; }
+.f-title-block{ text-align:center; display:flex; flex-direction:column; gap:2px; align-items:center; }
 .f-rule{ height:1px; background:var(--stone-line); }
+/* Heavier break used only between modelos once a ficha has 3+ of them (see
+   renderFichaPage) — a plain hairline reads as too weak to segment a tall
+   stack of modelo blocks, making the page feel like one dense wall of
+   text. Thicker + the accent tone (not the faint stone-line) so it's an
+   unmistakable "new modelo starts here" marker without turning into a
+   heavy black bar. */
+.f-rule-model{ height:3px; background:var(--accent); border-radius:2px; }
 .f-model-wrap{ display:flex; flex-direction:column; gap:16px; }
 .ph{ position:relative; }
 .ph::after{

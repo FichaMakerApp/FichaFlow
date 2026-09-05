@@ -44,8 +44,12 @@
   const FICHA_STYLE_FIELDS = [
     "estiloEyebrow", "estiloTitulo", "estiloFranja", "estiloPagoMonto", "estiloPagoMontoSub",
     "estiloModeloNombre", "estiloModeloPrecio", "estiloModeloPrecioSub", "estiloModeloSpecs",
-    "colorPrecioBadge", "estiloPrecioBadge", "colorPagoHead", "estiloPagoHead",
+    "colorPrecioBadge", "estiloPrecioBadge", "colorPrecioBadgeTexto", "colorPagoHead", "estiloPagoHead", "colorPagoHeadTexto",
     "colorShowroom", "estiloShowroom", "escalas",
+    // Previously missing from this list — "aplicar a todas" silently never
+    // mirrored the concepto/momento text style to the other fichas even
+    // though every other payment/price style did.
+    "estiloPagoConcepto", "colorPagoConcepto", "estiloPagoMomento", "colorPagoMomento",
   ];
 
   function syncFichaStylesIfNeeded() {
@@ -59,12 +63,17 @@
       FICHA_STYLE_FIELDS.forEach(function (key) {
         f[key] = JSON.parse(JSON.stringify(source[key]));
       });
-      // Botones vary in count/order per ficha — mirror color+estilo only
-      // onto buttons with the same label, so we never invent or drop one.
-      (f.botones || []).forEach(function (b) {
-        const match = (source.botones || []).find(function (sb) { return sb.texto === b.texto; });
+      // Matched by POSITION, not by label: every ficha's botones keep the
+      // same fixed slot order (BROCHURE, RENDERS, UBICACIÓN), but the label
+      // itself is a free-text field the user can rename per ficha — matching
+      // by texto silently skipped a button the moment its wording differed
+      // even slightly, which is exactly the "tengo que actualizarlos
+      // manualmente" complaint.
+      (f.botones || []).forEach(function (b, i) {
+        const match = (source.botones || [])[i];
         if (match) {
           b.color = match.color;
+          b.colorTexto = match.colorTexto;
           b.estilo = JSON.parse(JSON.stringify(match.estilo));
         }
       });
@@ -336,6 +345,42 @@
     colorInput.value = ficha[colorKey] || fallbackColor;
     colorInput.addEventListener("input", function () { ficha[colorKey] = colorInput.value; persistSilently(); });
     return styleControlsRow(label + " (texto)", ficha[styleKey], colorInput);
+  }
+
+  // Just a color swatch, no size/bold/italic/strike — for text whose size
+  // and weight are already covered by another control (or, for "Precio
+  // principal"/"secundario", deliberately follow the concepto/momento
+  // style instead of getting their own).
+  function colorOnlyRow(label, ficha, colorKey, fallbackColor) {
+    const colorInput = h("input", { type: "color", class: "input", style: "max-width:44px; height:34px; padding:2px; flex:0 0 44px;" });
+    colorInput.value = ficha[colorKey] || fallbackColor;
+    colorInput.addEventListener("input", function () { ficha[colorKey] = colorInput.value; persistSilently(); });
+    return h("div", { style: "display:flex; gap:10px; align-items:center; margin-bottom:10px;" }, [
+      h("span", { style: "min-width:120px; font-size:12.5px; font-weight:700;", text: label }),
+      colorInput,
+    ]);
+  }
+
+  // Size-only version of styleControlsRow — used for "Precio principal"/
+  // "secundario", whose font (negrita/cursiva/tachado) and color now
+  // deliberately follow the concepto/momento style instead of having their
+  // own, so only their independent size knob is left to show here.
+  function sizeOnlyRow(label, styleObj, hint) {
+    if (!styleObj) styleObj = S.defaultTextStyle();
+    const sizeInput = h("input", { type: "number", class: "input", style: "width:64px;", min: "-20", max: "80" });
+    sizeInput.value = styleObj.sizeDelta;
+    sizeInput.addEventListener("input", function () {
+      const clamped = Math.max(-20, Math.min(80, Number(sizeInput.value) || 0));
+      styleObj.sizeDelta = clamped;
+      persistSilently();
+    });
+    const row = h("div", { style: "display:flex; gap:10px; align-items:center; margin-bottom:4px; flex-wrap:wrap;" }, [
+      h("span", { style: "min-width:120px; font-size:12.5px; font-weight:700;", text: label }),
+      h("span", { class: "field-label", text: "Tamaño ±" }), sizeInput,
+    ]);
+    const nodes = [row];
+    if (hint) nodes.push(h("p", { class: "field-hint", style: "margin:-4px 0 10px;", text: hint }));
+    return h("div", {}, nodes);
   }
 
   function uploadSlot(src, label, onFile, onRemove) {
@@ -1177,8 +1222,12 @@
     modeloSection.appendChild(styleControlsRow("Nombre del modelo", ficha.estiloModeloNombre));
     modeloSection.appendChild(styleControlsRow("Habitaciones, baños y m² (íconos y texto)", ficha.estiloModeloSpecs));
     modeloSection.appendChild(colorStyleRow("Insignia \"Desde\"", ficha, "colorPrecioBadge", "estiloPrecioBadge", "#DDD4C2"));
-    modeloSection.appendChild(styleControlsRow("Precio principal", ficha.estiloModeloPrecio));
-    modeloSection.appendChild(styleControlsRow("Precio secundario (otra moneda)", ficha.estiloModeloPrecioSub));
+    modeloSection.appendChild(colorOnlyRow("Texto \"Desde\"", ficha, "colorPrecioBadgeTexto", "#2A2621"));
+    // Precio principal/secundario ya no tienen su propio negrita/cursiva/
+    // color: siguen exactamente los de "Concepto"/"Momento" (más abajo en
+    // este mismo panel), así que aquí solo queda su tamaño.
+    modeloSection.appendChild(sizeOnlyRow("Precio principal", ficha.estiloModeloPrecio, "La fuente y el color siguen a \"Concepto\", más abajo."));
+    modeloSection.appendChild(sizeOnlyRow("Precio secundario (otra moneda)", ficha.estiloModeloPrecioSub, "La fuente y el color siguen a \"Momento\", más abajo."));
     const showsShowroom = ficha.modelos.some(function (m) { return m.mostrarShowroom; });
     if (showsShowroom) {
       modeloSection.appendChild(colorStyleRow("Botón \"Showroom\"", ficha, "colorShowroom", "estiloShowroom", "#DDD4C2"));
@@ -1186,8 +1235,9 @@
       modeloSection.appendChild(h("p", { class: "field-hint", text: "Activa \"Mostrar botón showroom\" en algún modelo para poder editar su estilo." }));
     }
     modeloSection.appendChild(colorStyleRow("Barra \"Esquema de pago\"", ficha, "colorPagoHead", "estiloPagoHead", "#DDD4C2"));
-    modeloSection.appendChild(styleControlsRow("Concepto (ENGANCHE, SALDO A LA ENTREGA...)", ficha.estiloPagoConcepto));
-    modeloSection.appendChild(styleControlsRow("Momento (AL FIRMAR, CONTRA ESCRITURA...)", ficha.estiloPagoMomento));
+    modeloSection.appendChild(colorOnlyRow("Texto \"Esquema de pago\"", ficha, "colorPagoHeadTexto", "#2A2621"));
+    modeloSection.appendChild(colorStyleRow("Concepto (ENGANCHE, SALDO A LA ENTREGA...)", ficha, "colorPagoConcepto", "estiloPagoConcepto", "#2A2621"));
+    modeloSection.appendChild(colorStyleRow("Momento (AL FIRMAR, CONTRA ESCRITURA...)", ficha, "colorPagoMomento", "estiloPagoMomento", "#766D5F"));
     modeloSection.appendChild(styleControlsRow("Montos del esquema de pago", ficha.estiloPagoMonto));
     modeloSection.appendChild(styleControlsRow("Montos secundarios (≈ en otra moneda)", ficha.estiloPagoMontoSub));
     modeloSection.appendChild(h("p", { class: "field-hint", style: "margin-top:-6px;", text: "Los montos solo se muestran cuando la ficha NO tiene activa la tabla de precios por nivel." }));
@@ -1335,6 +1385,31 @@
             addBtn.addEventListener("click", function () {
               const clone = JSON.parse(JSON.stringify(entry.ficha));
               clone.id = S.uid();
+              // A library page is a frozen snapshot from whenever it was
+              // saved — it carries whatever design was current back then,
+              // not whatever "modo diseñador" has set up since. Without
+              // this, a page pulled in from the library keeps looking like
+              // an old design no matter how many times you tweak and
+              // "aplicar a todas" the current one, since that only mirrors
+              // across fichas already open when you make the edit. Copying
+              // the current document's own look onto it right away — same
+              // fields "aplicar a todas" already mirrors — means it matches
+              // from the moment it's added instead of needing a fresh edit
+              // afterward to catch up.
+              const styleSource = state.document.fichas[0];
+              if (styleSource) {
+                FICHA_STYLE_FIELDS.forEach(function (key) {
+                  clone[key] = JSON.parse(JSON.stringify(styleSource[key]));
+                });
+                (clone.botones || []).forEach(function (b, i) {
+                  const match = (styleSource.botones || [])[i];
+                  if (match) {
+                    b.color = match.color;
+                    b.colorTexto = match.colorTexto;
+                    b.estilo = JSON.parse(JSON.stringify(match.estilo));
+                  }
+                });
+              }
               state.document.fichas.push(clone);
               state.activeFichaId = clone.id;
               state.activeModeloIndex = 0;
