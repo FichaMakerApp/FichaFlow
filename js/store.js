@@ -506,9 +506,21 @@
   // from before. Read it, write it into IndexedDB, verify it round-trips,
   // and only then clear the old localStorage copy — if anything about the
   // migration is uncertain, the original stays put instead of being lost.
+  //
+  // normalizeFn also runs on the ordinary "already in IndexedDB" path, not
+  // just this one-time migration — every app update since has added new
+  // ficha fields, and a returning user's document is that same IndexedDB
+  // object being handed back as-is forever, never re-normalized. That was
+  // harmless as long as new code only ever READ a missing field with a
+  // `|| fallback` — but "modo diseñador" mirrors style fields with
+  // JSON.parse(JSON.stringify(value)), which throws outright on undefined,
+  // not just misbehaves. That's what turned "editing a field that didn't
+  // exist yet on this saved document" into "aplicar a todas throws, the
+  // designer's own re-render never finishes, and it looks like the whole
+  // modal stopped opening at all."
   function loadFromIdbOrMigrate(key, normalizeFn, defaultFn) {
     return idbGet(key).then(function (found) {
-      if (found !== undefined) return found;
+      if (found !== undefined) return normalizeFn(found);
       let migrated = null;
       try {
         const raw = localStorage.getItem(key);

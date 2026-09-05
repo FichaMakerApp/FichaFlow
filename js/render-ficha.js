@@ -201,9 +201,13 @@
       // active, per-level prices replace it, so showing both would just be
       // two conflicting numbers for the same modelo.
       modelo.mostrarTablaNivel ? null : h("div", { class: "f-price-block" }, [
+        // Same size as BROCHURE/RENDERS/UBICACIÓN, always — sizeDelta is
+        // deliberately ignored here (negrita/cursiva/tachado still apply)
+        // so "Desde" can never drift from the buttons again, no matter
+        // what size someone dialed in before this was tied together.
         h("div", {
           class: "f-price-badge", text: "Desde",
-          style: "background:" + (ficha.colorPrecioBadge || "#DDD4C2") + ";color:" + (ficha.colorPrecioBadgeTexto || "#2A2621") + ";" + textStyleCss(ficha.estiloPrecioBadge, 15 * specsScale),
+          style: "background:" + (ficha.colorPrecioBadge || "#DDD4C2") + ";color:" + (ficha.colorPrecioBadgeTexto || "#2A2621") + ";" + textStyleCss(Object.assign({}, ficha.estiloPrecioBadge, { sizeDelta: 0 }), 15 * gs),
         }),
         // Font (negrita/cursiva/tachado) and color mirror "Concepto"/
         // "Momento" from the payment table on purpose — see

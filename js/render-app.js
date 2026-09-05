@@ -305,18 +305,15 @@
   // "Modo diseñador" — size + bold/italic/strike controls for a text style
   // object. `extraEl` (optional) is appended at the end of the same row —
   // used to fold a color swatch into this row instead of a separate one.
-  function styleControlsRow(label, styleObj, extraEl) {
+  // `hideSize` drops the size input — used for "Desde", whose size is now
+  // locked to always match the buttons (see textStyleCss call in
+  // render-ficha.js), so there's nothing left to adjust but negrita/
+  // cursiva/tachado/color.
+  function styleControlsRow(label, styleObj, extraEl, hideSize) {
     // Defensive fallback: an older or imported document might be missing
     // this field even after normalizeDocument() — never let a missing
     // style object crash the whole designer modal.
     if (!styleObj) styleObj = S.defaultTextStyle();
-    const sizeInput = h("input", { type: "number", class: "input", style: "width:64px;", min: "-20", max: "80" });
-    sizeInput.value = styleObj.sizeDelta;
-    sizeInput.addEventListener("input", function () {
-      const clamped = Math.max(-20, Math.min(80, Number(sizeInput.value) || 0));
-      styleObj.sizeDelta = clamped;
-      persistSilently();
-    });
     function toggleBtn(lbl, key) {
       const btn = h("button", { type: "button", class: "btn btn-sm" + (styleObj[key] ? " btn-primary" : ""), text: lbl });
       btn.addEventListener("click", function () {
@@ -331,20 +328,28 @@
       });
       return btn;
     }
-    const row = h("div", { style: "display:flex; gap:10px; align-items:center; margin-bottom:10px; flex-wrap:wrap;" }, [
-      h("span", { style: "min-width:120px; font-size:12.5px; font-weight:700;", text: label }),
-      h("span", { class: "field-label", text: "Tamaño ±" }), sizeInput,
-      toggleBtn("N", "bold"), toggleBtn("K", "italic"), toggleBtn("T", "strike"),
-    ]);
+    const rowChildren = [h("span", { style: "min-width:120px; font-size:12.5px; font-weight:700;", text: label })];
+    if (!hideSize) {
+      const sizeInput = h("input", { type: "number", class: "input", style: "width:64px;", min: "-20", max: "80" });
+      sizeInput.value = styleObj.sizeDelta;
+      sizeInput.addEventListener("input", function () {
+        const clamped = Math.max(-20, Math.min(80, Number(sizeInput.value) || 0));
+        styleObj.sizeDelta = clamped;
+        persistSilently();
+      });
+      rowChildren.push(h("span", { class: "field-label", text: "Tamaño ±" }), sizeInput);
+    }
+    rowChildren.push(toggleBtn("N", "bold"), toggleBtn("K", "italic"), toggleBtn("T", "strike"));
+    const row = h("div", { style: "display:flex; gap:10px; align-items:center; margin-bottom:10px; flex-wrap:wrap;" }, rowChildren);
     if (extraEl) row.appendChild(extraEl);
     return row;
   }
 
-  function colorStyleRow(label, ficha, colorKey, styleKey, fallbackColor) {
+  function colorStyleRow(label, ficha, colorKey, styleKey, fallbackColor, hideSize) {
     const colorInput = h("input", { type: "color", class: "input", style: "max-width:44px; height:34px; padding:2px; flex:0 0 44px;" });
     colorInput.value = ficha[colorKey] || fallbackColor;
     colorInput.addEventListener("input", function () { ficha[colorKey] = colorInput.value; persistSilently(); });
-    return styleControlsRow(label + " (texto)", ficha[styleKey], colorInput);
+    return styleControlsRow(label + " (texto)", ficha[styleKey], colorInput, hideSize);
   }
 
   // Just a color swatch, no size/bold/italic/strike — for text whose size
@@ -1221,8 +1226,12 @@
     ]);
     modeloSection.appendChild(styleControlsRow("Nombre del modelo", ficha.estiloModeloNombre));
     modeloSection.appendChild(styleControlsRow("Habitaciones, baños y m² (íconos y texto)", ficha.estiloModeloSpecs));
-    modeloSection.appendChild(colorStyleRow("Insignia \"Desde\"", ficha, "colorPrecioBadge", "estiloPrecioBadge", "#DDD4C2"));
+    // No size control here on purpose — "Desde" always renders at the same
+    // size as the botones now (see render-ficha.js), so only its
+    // negrita/cursiva/tachado/color are left to adjust.
+    modeloSection.appendChild(colorStyleRow("Insignia \"Desde\"", ficha, "colorPrecioBadge", "estiloPrecioBadge", "#DDD4C2", true));
     modeloSection.appendChild(colorOnlyRow("Texto \"Desde\"", ficha, "colorPrecioBadgeTexto", "#2A2621"));
+    modeloSection.appendChild(h("p", { class: "field-hint", style: "margin-top:-6px; margin-bottom:14px;", text: "El tamaño de \"Desde\" siempre iguala al de los botones (BROCHURE, RENDERS...)." }));
     // Precio principal/secundario ya no tienen su propio negrita/cursiva/
     // color: siguen exactamente los de "Concepto"/"Momento" (más abajo en
     // este mismo panel), así que aquí solo queda su tamaño.
@@ -1422,6 +1431,13 @@
                 });
               }
               state.document.fichas.push(clone);
+              // A library entry is a raw saved snapshot that never passes
+              // through normalizeDocument() on its own — it can predate any
+              // ficha field added since it was saved. Re-normalizing the
+              // whole document after pushing it backfills whatever the
+              // clone is missing, the same safety net a freshly loaded
+              // document already gets.
+              S.normalizeDocument(state.document);
               state.activeFichaId = clone.id;
               state.activeModeloIndex = 0;
               persistStruct();
