@@ -25,6 +25,26 @@
     return document.fonts.ready.catch(function () {});
   }
 
+  // Same idea as waitForFonts, for <img> elements: even an already-loaded
+  // data-URI image can decode asynchronously, and a page with several
+  // full-resolution photos (a gallery, a plano, unit thumbnails) settling
+  // its layout mid-measurement is another way the button in the image and
+  // its link position end up a hair apart. img.decode() resolves once
+  // decoding has genuinely finished; a broken image's rejection is
+  // swallowed so one bad photo can't stall the whole export.
+  function waitForImages(container) {
+    const imgs = container.querySelectorAll("img");
+    const perImageTimeout = function (p) {
+      return Promise.race([p, wait(1500)]);
+    };
+    return Promise.all(Array.prototype.map.call(imgs, function (img) {
+      if (typeof img.decode === "function") return perImageTimeout(img.decode().catch(function () {}));
+      return img.complete ? Promise.resolve() : perImageTimeout(new Promise(function (r) {
+        img.onload = r; img.onerror = r;
+      }));
+    }));
+  }
+
   // html2canvas flattens the whole page to pixels, so the <a href> buttons
   // (BROCHURE, RENDERS, UBICACIÓN, SHOWROOM) still *look* clickable in the
   // embedded image but have no real link behind them. This measures each
@@ -98,6 +118,8 @@
       // (not just a fixed amount of time) have settled before capture.
       return wait(60).then(function () {
         return waitForFonts();
+      }).then(function () {
+        return waitForImages(pages[i]);
       }).then(function () {
         // Measured BEFORE capture, straight from the live DOM — this is
         // the one source of truth for the page's real proportions. The
