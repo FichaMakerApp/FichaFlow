@@ -30,10 +30,21 @@
   // embedded image but have no real link behind them. This measures each
   // link's on-screen position in the exact DOM html2canvas just captured
   // and adds a real PDF link annotation over that same spot.
-  function addLinkAnnotations(pdf, pageEl, pageWidthPt) {
-    const pageRect = pageEl.getBoundingClientRect();
-    if (!pageRect.width) return;
-    const scale = pageWidthPt / pageRect.width;
+  //
+  // `scale` here MUST be the same value used to size the page itself
+  // (pageWidthPt / pageRect.width, both measured straight from the live
+  // DOM) — never one re-derived from the captured canvas's own pixel
+  // dimensions. A phone under memory pressure can have html2canvas
+  // silently produce a canvas at a different effective resolution than
+  // `scale:3` asks for (mobile Safari has real canvas-size ceilings, and
+  // a tall multi-modelo ficha at 3x can approach them); if the image is
+  // then sized from THAT canvas while links are positioned from the DOM
+  // rect, the two stop agreeing and every link ends up shifted from its
+  // visible button by the same proportion, however far down the page it
+  // is — which is exactly the "reacts lower than the button, same gap
+  // everywhere" a real device reported. Deriving everything from one
+  // single DOM measurement removes that whole class of mismatch.
+  function addLinkAnnotations(pdf, pageEl, scale, pageRect) {
     const links = pageEl.querySelectorAll("a[href]");
     links.forEach(function (a) {
       const href = a.getAttribute("href");
@@ -88,24 +99,30 @@
       return wait(60).then(function () {
         return waitForFonts();
       }).then(function () {
-        return window.html2canvas(pages[i], { scale: 3, useCORS: true, backgroundColor: "#ffffff" });
-      }).then(function (canvas) {
-        const imgData = canvas.toDataURL("image/jpeg", 0.98);
+        // Measured BEFORE capture, straight from the live DOM — this is
+        // the one source of truth for the page's real proportions. The
+        // captured canvas's own pixel dimensions are used only to draw
+        // the image, never to work out where anything sits on the page.
         const pageWidthPt = 612; // US letter width
-        const pageHeightPt = canvas.height * (pageWidthPt / canvas.width);
-        // Pages shorter than they are wide (the map page) must say so
-        // explicitly — jsPDF's addPage()/constructor otherwise assume
-        // portrait and silently swap width/height for a [w,h] format
-        // array, which clipped the map's right edge in the exported PDF.
-        const orientation = pageHeightPt >= pageWidthPt ? "p" : "l";
-        if (!pdf) {
-          pdf = new jsPDF({ orientation: orientation, unit: "pt", format: [pageWidthPt, pageHeightPt] });
-        } else {
-          pdf.addPage([pageWidthPt, pageHeightPt], orientation);
-        }
-        pdf.addImage(imgData, "JPEG", 0, 0, pageWidthPt, pageHeightPt);
-        addLinkAnnotations(pdf, pages[i], pageWidthPt);
-        return processPage(i + 1);
+        const pageRect = pages[i].getBoundingClientRect();
+        const scale = pageWidthPt / pageRect.width;
+        const pageHeightPt = pageRect.height * scale;
+        return window.html2canvas(pages[i], { scale: 3, useCORS: true, backgroundColor: "#ffffff" }).then(function (canvas) {
+          const imgData = canvas.toDataURL("image/jpeg", 0.98);
+          // Pages shorter than they are wide (the map page) must say so
+          // explicitly — jsPDF's addPage()/constructor otherwise assume
+          // portrait and silently swap width/height for a [w,h] format
+          // array, which clipped the map's right edge in the exported PDF.
+          const orientation = pageHeightPt >= pageWidthPt ? "p" : "l";
+          if (!pdf) {
+            pdf = new jsPDF({ orientation: orientation, unit: "pt", format: [pageWidthPt, pageHeightPt] });
+          } else {
+            pdf.addPage([pageWidthPt, pageHeightPt], orientation);
+          }
+          pdf.addImage(imgData, "JPEG", 0, 0, pageWidthPt, pageHeightPt);
+          addLinkAnnotations(pdf, pages[i], scale, pageRect);
+          return processPage(i + 1);
+        });
       });
     }
 
