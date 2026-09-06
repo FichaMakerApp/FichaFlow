@@ -306,7 +306,10 @@
 
   function renderLevelTable(modelo, ficha, doc, pagoScale) {
     pagoScale = pagoScale || 1;
-    const rows = [h("div", { class: "lt-row head", style: "font-size:" + (16 * pagoScale) + "px" }, [
+    const rows = [h("div", {
+      class: "lt-row head",
+      style: "font-size:" + (16 * pagoScale) + "px;background:" + (ficha.colorNivelHead || "#DDD4C2") + ";color:" + (ficha.colorNivelHeadTexto || "#2A2621"),
+    }, [
       h("span", { text: "Nivel" }), h("span", { text: "Precio" }),
     ])];
     // Matches the payment schedule's own sizes (concepto/amt/amt-sub) so

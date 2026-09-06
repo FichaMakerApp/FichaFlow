@@ -45,6 +45,7 @@
     "estiloEyebrow", "estiloTitulo", "estiloFranja", "estiloPagoMonto", "estiloPagoMontoSub",
     "estiloModeloNombre", "estiloModeloPrecio", "estiloModeloPrecioSub", "estiloModeloSpecs",
     "colorPrecioBadge", "estiloPrecioBadge", "colorPrecioBadgeTexto", "colorPagoHead", "estiloPagoHead", "colorPagoHeadTexto",
+    "colorNivelHead", "colorNivelHeadTexto",
     "colorShowroom", "colorShowroomTexto", "estiloShowroom", "escalas",
     // Previously missing from this list — "aplicar a todas" silently never
     // mirrored the concepto/momento text style to the other fichas even
@@ -1253,6 +1254,13 @@
       modeloSection.appendChild(h("p", { class: "field-hint", style: "margin-top:-6px; margin-bottom:14px;", text: "El primer color es el fondo del botón, el segundo es el color del texto." }));
     } else {
       modeloSection.appendChild(h("p", { class: "field-hint", text: "Activa \"Mostrar botón showroom\" en algún modelo para poder editar su estilo." }));
+    }
+    const showsNivelTabla = ficha.modelos.some(function (m) { return m.mostrarTablaNivel; });
+    if (showsNivelTabla) {
+      modeloSection.appendChild(colorOnlyRow("Encabezado \"Nivel / Precio\" (fondo)", ficha, "colorNivelHead", "#DDD4C2"));
+      modeloSection.appendChild(colorOnlyRow("Encabezado \"Nivel / Precio\" (texto)", ficha, "colorNivelHeadTexto", "#2A2621"));
+    } else {
+      modeloSection.appendChild(h("p", { class: "field-hint", text: "Activa \"Tabla de precios por nivel\" en algún modelo para poder editar el color de su encabezado." }));
     }
     modeloSection.appendChild(colorStyleRow("Barra \"Esquema de pago\"", ficha, "colorPagoHead", "estiloPagoHead", "#DDD4C2"));
     modeloSection.appendChild(colorOnlyRow("Texto \"Esquema de pago\"", ficha, "colorPagoHeadTexto", "#2A2621"));

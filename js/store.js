@@ -78,6 +78,7 @@
   const FICHA_DESIGN_FIELDS = [
     "escalas", "estiloModeloNombre", "estiloModeloPrecio", "estiloModeloPrecioSub", "estiloModeloSpecs",
     "colorPrecioBadge", "estiloPrecioBadge", "colorPrecioBadgeTexto", "colorPagoHead", "estiloPagoHead", "colorPagoHeadTexto",
+    "colorNivelHead", "colorNivelHeadTexto",
     "colorShowroom", "colorShowroomTexto", "estiloShowroom", "estiloTitulo", "estiloEyebrow", "estiloFranja",
     "estiloPagoConcepto", "colorPagoConcepto", "estiloPagoMomento", "colorPagoMomento",
     "estiloPagoMonto", "estiloPagoMontoSub",
@@ -159,6 +160,7 @@
       estiloModeloPrecioSub: defaultTextStyle(), estiloModeloSpecs: defaultTextStyle(),
       colorPrecioBadge: "#DDD4C2", estiloPrecioBadge: defaultTextStyle(), colorPrecioBadgeTexto: "#2A2621",
       colorPagoHead: "#DDD4C2", estiloPagoHead: defaultTextStyle(), colorPagoHeadTexto: "#2A2621",
+      colorNivelHead: "#DDD4C2", colorNivelHeadTexto: "#2A2621",
       colorShowroom: "#2A2621", colorShowroomTexto: "#F1ECE2", estiloShowroom: defaultTextStyle(),
       estiloTitulo: defaultTextStyle(), estiloEyebrow: defaultTextStyle(), estiloFranja: defaultTextStyle(),
       estiloPagoConcepto: defaultTextStyle(), colorPagoConcepto: "#2A2621",
@@ -264,6 +266,8 @@
       colorPagoHead: "#DDD4C2",
       estiloPagoHead: defaultTextStyle(),
       colorPagoHeadTexto: "#2A2621",
+      colorNivelHead: "#DDD4C2",
+      colorNivelHeadTexto: "#2A2621",
       colorShowroom: "#2A2621",
       colorShowroomTexto: "#F1ECE2",
       estiloShowroom: defaultTextStyle(),
@@ -404,6 +408,8 @@
       if (!f.colorPagoHead) f.colorPagoHead = "#DDD4C2";
       if (!f.estiloPagoHead) f.estiloPagoHead = defaultTextStyle();
       if (!f.colorPagoHeadTexto) f.colorPagoHeadTexto = "#2A2621";
+      if (!f.colorNivelHead) f.colorNivelHead = "#DDD4C2";
+      if (!f.colorNivelHeadTexto) f.colorNivelHeadTexto = "#2A2621";
       if (!f.colorPagoConcepto) f.colorPagoConcepto = "#2A2621";
       if (!f.colorPagoMomento) f.colorPagoMomento = "#766D5F";
       // "#DDD4C2" was the OLD factory default (light accent pill, matching
