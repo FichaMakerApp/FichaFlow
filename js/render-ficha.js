@@ -96,24 +96,6 @@
     return parts.join(";");
   }
 
-  // Precio principal/secundario deliberately don't get their own negrita/
-  // cursiva/tachado/color anymore — they follow whatever "Concepto"/
-  // "Momento" (the payment table's own labels) are set to, so the two
-  // always read as one matching system instead of drifting apart. Only the
-  // SIZE stays independent (own sizeDelta), since prices and labels aren't
-  // meant to be the same size.
-  function textStyleCssFollowing(ownSizeStyle, followedFontStyle, baseSizePx, color) {
-    const merged = {
-      sizeDelta: (ownSizeStyle && ownSizeStyle.sizeDelta) || 0,
-      bold: !!(followedFontStyle && followedFontStyle.bold),
-      italic: !!(followedFontStyle && followedFontStyle.italic),
-      strike: !!(followedFontStyle && followedFontStyle.strike),
-    };
-    let css = textStyleCss(merged, baseSizePx);
-    if (color) css += ";color:" + color;
-    return css;
-  }
-
   // Minimal line-art icons matching the reference template's style.
   const ICONS = {
     bed: '<svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="7" rx="1"/><path d="M3 18v2M21 18v2M5 11V8a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3"/></svg>',
@@ -209,12 +191,12 @@
           class: "f-price-badge", text: "Desde",
           style: "background:" + (ficha.colorPrecioBadge || "#DDD4C2") + ";color:" + (ficha.colorPrecioBadgeTexto || "#2A2621") + ";" + textStyleCss(Object.assign({}, ficha.estiloPrecioBadge, { sizeDelta: 0 }), 15 * gs),
         }),
-        // Font (negrita/cursiva/tachado) and color mirror "Concepto"/
-        // "Momento" from the payment table on purpose — see
-        // textStyleCssFollowing — only the size stays its own.
-        h("div", { class: "f-price-big", style: textStyleCssFollowing(ficha.estiloModeloPrecio, ficha.estiloPagoConcepto, 24 * specsScale, ficha.colorPagoConcepto), text: C.fmtMoney(priceMain, priceMainCur) }),
+        // Independent from "Concepto"/"Momento" (the esquema de pago table)
+        // on purpose — precio principal/secundario have their own negrita/
+        // cursiva/tachado and color now.
+        h("div", { class: "f-price-big", style: textStyleCss(ficha.estiloModeloPrecio, 24 * specsScale) + ";color:" + (ficha.colorModeloPrecio || "#2A2621"), text: C.fmtMoney(priceMain, priceMainCur) }),
         ficha.mostrarConversion
-          ? h("div", { class: "f-price-sub", style: textStyleCssFollowing(ficha.estiloModeloPrecioSub, ficha.estiloPagoMomento, 16 * specsScale, ficha.colorPagoMomento), text: "APROX. " + C.fmtMoney(priceSub, priceSubCur) })
+          ? h("div", { class: "f-price-sub", style: textStyleCss(ficha.estiloModeloPrecioSub, 16 * specsScale) + ";color:" + (ficha.colorModeloPrecioSub || "#766D5F"), text: "APROX. " + C.fmtMoney(priceSub, priceSubCur) })
           : null,
       ]),
       // Same look as BROCHURE/RENDERS/UBICACIÓN (dark fill, light text,
@@ -283,9 +265,9 @@
         const amtSubCur = ficha.moneda === "USD" ? amt.mxn : amt.usd;
         const amtSubLabel = ficha.moneda === "USD" ? "MXN" : "USD";
         children.push(h("div", { class: "f-pay-amt-col" }, [
-          h("span", { class: "amt", style: textStyleCss(ficha.estiloPagoMonto, 16 * pagoScale), text: C.fmtMoney(amtCur, ficha.moneda) }),
+          h("span", { class: "amt", style: textStyleCss(ficha.estiloPagoMonto, 16 * pagoScale) + ";color:" + (ficha.colorPagoMonto || "#766D5F"), text: C.fmtMoney(amtCur, ficha.moneda) }),
           ficha.mostrarConversion
-            ? h("span", { class: "amt-sub", style: textStyleCss(ficha.estiloPagoMontoSub, 13 * pagoScale), text: "APROX. " + C.fmtMoney(amtSubCur, amtSubLabel) })
+            ? h("span", { class: "amt-sub", style: textStyleCss(ficha.estiloPagoMontoSub, 13 * pagoScale) + ";color:" + (ficha.colorPagoMontoSub || "#A69C8A"), text: "APROX. " + C.fmtMoney(amtSubCur, amtSubLabel) })
             : null,
         ]));
       }

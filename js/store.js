@@ -76,12 +76,12 @@
   // colors/sizes. It lives in its own localStorage key, separate from any
   // document, so it survives "Nuevo documento" and applies across the board.
   const FICHA_DESIGN_FIELDS = [
-    "escalas", "estiloModeloNombre", "estiloModeloPrecio", "estiloModeloPrecioSub", "estiloModeloSpecs",
+    "escalas", "estiloModeloNombre", "estiloModeloPrecio", "colorModeloPrecio", "estiloModeloPrecioSub", "colorModeloPrecioSub", "estiloModeloSpecs",
     "colorPrecioBadge", "estiloPrecioBadge", "colorPrecioBadgeTexto", "colorPagoHead", "estiloPagoHead", "colorPagoHeadTexto",
     "colorNivelHead", "colorNivelHeadTexto", "estiloNivelPrecio", "colorNivelPrecio", "estiloNivelPrecioSub", "colorNivelPrecioSub",
     "colorShowroom", "colorShowroomTexto", "estiloShowroom", "estiloTitulo", "estiloEyebrow", "estiloFranja",
     "estiloPagoConcepto", "colorPagoConcepto", "estiloPagoMomento", "colorPagoMomento",
-    "estiloPagoMonto", "estiloPagoMontoSub",
+    "estiloPagoMonto", "colorPagoMonto", "estiloPagoMontoSub", "colorPagoMontoSub",
   ];
   const GLOBAL_DESIGN_FIELDS = [
     "paperColor", "paperImage", "textScale", "fontFamily",
@@ -156,8 +156,8 @@
     },
     ficha: {
       escalas: { plano: 100, specs: 100, pago: 100 },
-      estiloModeloNombre: defaultTextStyle(), estiloModeloPrecio: defaultTextStyle(),
-      estiloModeloPrecioSub: defaultTextStyle(), estiloModeloSpecs: defaultTextStyle(),
+      estiloModeloNombre: defaultTextStyle(), estiloModeloPrecio: defaultTextStyle(), colorModeloPrecio: "#2A2621",
+      estiloModeloPrecioSub: defaultTextStyle(), colorModeloPrecioSub: "#766D5F", estiloModeloSpecs: defaultTextStyle(),
       colorPrecioBadge: "#DDD4C2", estiloPrecioBadge: defaultTextStyle(), colorPrecioBadgeTexto: "#2A2621",
       colorPagoHead: "#DDD4C2", estiloPagoHead: defaultTextStyle(), colorPagoHeadTexto: "#2A2621",
       colorNivelHead: "#DDD4C2", colorNivelHeadTexto: "#2A2621",
@@ -167,7 +167,8 @@
       estiloTitulo: defaultTextStyle(), estiloEyebrow: defaultTextStyle(), estiloFranja: defaultTextStyle(),
       estiloPagoConcepto: defaultTextStyle(), colorPagoConcepto: "#2A2621",
       estiloPagoMomento: defaultTextStyle(false), colorPagoMomento: "#766D5F",
-      estiloPagoMonto: defaultTextStyle(), estiloPagoMontoSub: defaultTextStyle(),
+      estiloPagoMonto: defaultTextStyle(), colorPagoMonto: "#766D5F",
+      estiloPagoMontoSub: defaultTextStyle(), colorPagoMontoSub: "#A69C8A",
     },
     botones: [
       { texto: "BROCHURE", color: "#2A2621", colorTexto: "#F1ECE2", estilo: defaultTextStyle(false) },
@@ -260,7 +261,9 @@
       escalas: { plano: 100, specs: 100, pago: 100 },
       estiloModeloNombre: defaultTextStyle(),
       estiloModeloPrecio: defaultTextStyle(),
+      colorModeloPrecio: "#2A2621",
       estiloModeloPrecioSub: defaultTextStyle(),
+      colorModeloPrecioSub: "#766D5F",
       estiloModeloSpecs: defaultTextStyle(),
       colorPrecioBadge: "#DDD4C2",
       estiloPrecioBadge: defaultTextStyle(),
@@ -287,7 +290,9 @@
       estiloPagoMomento: defaultTextStyle(false),
       colorPagoMomento: "#766D5F",
       estiloPagoMonto: defaultTextStyle(),
+      colorPagoMonto: "#766D5F",
       estiloPagoMontoSub: defaultTextStyle(),
+      colorPagoMontoSub: "#A69C8A",
       botones: [
         defaultBoton("BROCHURE"),
         defaultBoton("RENDERS"),
@@ -407,7 +412,9 @@
       if (!f.estiloPagoConcepto) f.estiloPagoConcepto = defaultTextStyle();
       if (!f.estiloPagoMomento) f.estiloPagoMomento = defaultTextStyle(false);
       if (!f.estiloPagoMonto) f.estiloPagoMonto = defaultTextStyle();
+      if (!f.colorPagoMonto) f.colorPagoMonto = "#766D5F";
       if (!f.estiloPagoMontoSub) f.estiloPagoMontoSub = defaultTextStyle();
+      if (!f.colorPagoMontoSub) f.colorPagoMontoSub = "#A69C8A";
       if (!f.colorPrecioBadge) f.colorPrecioBadge = "#DDD4C2";
       if (!f.estiloPrecioBadge) f.estiloPrecioBadge = defaultTextStyle();
       if (!f.colorPrecioBadgeTexto) f.colorPrecioBadgeTexto = "#2A2621";
@@ -441,7 +448,9 @@
       const firstModelo = f.modelos && f.modelos[0];
       if (!f.estiloModeloNombre) f.estiloModeloNombre = (firstModelo && firstModelo.estiloNombre) || defaultTextStyle();
       if (!f.estiloModeloPrecio) f.estiloModeloPrecio = (firstModelo && firstModelo.estiloPrecio) || defaultTextStyle();
+      if (!f.colorModeloPrecio) f.colorModeloPrecio = "#2A2621";
       if (!f.estiloModeloPrecioSub) f.estiloModeloPrecioSub = defaultTextStyle();
+      if (!f.colorModeloPrecioSub) f.colorModeloPrecioSub = "#766D5F";
       if (!f.estiloModeloSpecs) f.estiloModeloSpecs = (firstModelo && firstModelo.estiloSpecs) || defaultTextStyle();
       if (typeof f.avisoLegal !== "string" || !f.avisoLegal.trim()) f.avisoLegal = DEFAULT_LEGAL;
       if (!f.gastosCierre) f.gastosCierre = { activo: false, monto: "" };

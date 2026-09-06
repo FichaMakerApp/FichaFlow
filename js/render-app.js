@@ -42,8 +42,8 @@
   // per-ficha content (desarrollo, ciudad, precios, imágenes...) — only
   // the visual/style fields.
   const FICHA_STYLE_FIELDS = [
-    "estiloEyebrow", "estiloTitulo", "estiloFranja", "estiloPagoMonto", "estiloPagoMontoSub",
-    "estiloModeloNombre", "estiloModeloPrecio", "estiloModeloPrecioSub", "estiloModeloSpecs",
+    "estiloEyebrow", "estiloTitulo", "estiloFranja", "estiloPagoMonto", "colorPagoMonto", "estiloPagoMontoSub", "colorPagoMontoSub",
+    "estiloModeloNombre", "estiloModeloPrecio", "colorModeloPrecio", "estiloModeloPrecioSub", "colorModeloPrecioSub", "estiloModeloSpecs",
     "colorPrecioBadge", "estiloPrecioBadge", "colorPrecioBadgeTexto", "colorPagoHead", "estiloPagoHead", "colorPagoHeadTexto",
     "colorNivelHead", "colorNivelHeadTexto", "estiloNivelPrecio", "colorNivelPrecio", "estiloNivelPrecioSub", "colorNivelPrecioSub",
     "colorShowroom", "colorShowroomTexto", "estiloShowroom", "escalas",
@@ -1242,8 +1242,9 @@
 
     const precioSection = h("div", { class: "modal-section" }, [h("h3", { text: "Precio \"Desde\"" })]);
     // No size control on "Desde" — it always matches the botones now (see
-    // render-ficha.js) — and precio principal/secundario have no N/K/T of
-    // their own since they follow "Concepto"/"Momento" below.
+    // render-ficha.js). Precio principal/secundario are independent from
+    // "Concepto"/"Momento" (the esquema de pago table) — their own N/K/T
+    // and color.
     precioSection.appendChild(combinedRow("Insignia \"Desde\"", {
       styleObj: ficha.estiloPrecioBadge, showSize: false,
       colors: [
@@ -1253,12 +1254,12 @@
       hint: "El tamaño de \"Desde\" siempre iguala al de los botones.",
     }));
     precioSection.appendChild(combinedRow("Precio principal", {
-      styleObj: ficha.estiloModeloPrecio, showStyle: false,
-      hint: "La fuente y el color siguen a \"Concepto\", más abajo.",
+      styleObj: ficha.estiloModeloPrecio,
+      colors: [{ obj: ficha, key: "colorModeloPrecio", fallback: "#2A2621", title: "Texto" }],
     }));
     precioSection.appendChild(combinedRow("Precio secundario (otra moneda)", {
-      styleObj: ficha.estiloModeloPrecioSub, showStyle: false,
-      hint: "La fuente y el color siguen a \"Momento\", más abajo.",
+      styleObj: ficha.estiloModeloPrecioSub,
+      colors: [{ obj: ficha, key: "colorModeloPrecioSub", fallback: "#766D5F", title: "Texto" }],
     }));
     controls.appendChild(precioSection);
 
@@ -1317,9 +1318,13 @@
       styleObj: ficha.estiloPagoMomento,
       colors: [{ obj: ficha, key: "colorPagoMomento", fallback: "#766D5F", title: "Texto" }],
     }));
-    pagoSection.appendChild(combinedRow("Montos", { styleObj: ficha.estiloPagoMonto }));
+    pagoSection.appendChild(combinedRow("Montos", {
+      styleObj: ficha.estiloPagoMonto,
+      colors: [{ obj: ficha, key: "colorPagoMonto", fallback: "#766D5F", title: "Texto" }],
+    }));
     pagoSection.appendChild(combinedRow("Montos secundarios (≈ en otra moneda)", {
       styleObj: ficha.estiloPagoMontoSub,
+      colors: [{ obj: ficha, key: "colorPagoMontoSub", fallback: "#A69C8A", title: "Texto" }],
       hint: "Los montos solo se muestran cuando la ficha NO tiene activa la tabla de precios por nivel.",
     }));
     controls.appendChild(pagoSection);
