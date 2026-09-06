@@ -1687,11 +1687,15 @@
     }
 
     container.appendChild(h("div", { class: "block-divider", style: "margin-top:6px;" }));
-    container.appendChild(field("Esquema de pago", segmented(
-      [{ value: "preventa", label: "Preventa" }, { value: "entrega_inmediata", label: "Entrega inmediata" }],
-      modelo.pagos.tipo, function (v) { modelo.pagos.tipo = v; persistStruct(); }
-    ), "Cada modelo conserva el suyo."));
-    renderPagoRows(container, ficha, modelo);
+    container.appendChild(toggleRow("Esquema de pago", "Apágalo para que esta ficha no muestre ni la tabla de pagos ni el texto de contado.", modelo.mostrarEsquemaPago !== false,
+      function (v) { modelo.mostrarEsquemaPago = v; persistStruct(); }));
+    if (modelo.mostrarEsquemaPago !== false) {
+      container.appendChild(field("Tipo de esquema", segmented(
+        [{ value: "preventa", label: "Preventa" }, { value: "entrega_inmediata", label: "Entrega inmediata" }],
+        modelo.pagos.tipo, function (v) { modelo.pagos.tipo = v; persistStruct(); }
+      ), "Cada modelo conserva el suyo."));
+      renderPagoRows(container, ficha, modelo);
+    }
   }
 
   // A modelo nobody has touched yet still exports as a full "$0, 0 habs"

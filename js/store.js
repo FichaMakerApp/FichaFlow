@@ -53,6 +53,7 @@
       niveles: [
         { id: uid(), nombre: "PLANTA BAJA", precio: "" },
       ],
+      mostrarEsquemaPago: true,
       pagos: {
         tipo: "preventa", // 'preventa' | 'entrega_inmediata'
         textoContado: "PAGO DE CONTADO O CRÉDITO HIPOTECARIO",
@@ -446,6 +447,11 @@
       (f.modelos || []).forEach(function (m) {
         delete m.estiloNombre; delete m.estiloPrecio; delete m.estiloSpecs;
         if (typeof m.showroomTexto !== "string" || !m.showroomTexto.trim()) m.showroomTexto = "Showroom";
+        // Esquema de pago used to always show — an older modelo missing
+        // this flag must default to true (visible), not false, or every
+        // ficha made before this toggle existed would silently lose its
+        // payment schedule the moment it's opened again.
+        if (typeof m.mostrarEsquemaPago !== "boolean") m.mostrarEsquemaPago = true;
       });
     });
     parsed.mapas.forEach(function (mapa) {

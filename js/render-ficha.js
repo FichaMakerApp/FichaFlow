@@ -243,20 +243,28 @@
     // Amounts per row only get hidden when the level-pricing table is also
     // showing (that's when they'd be redundant, sitting right below level
     // prices). Otherwise the payment schedule shows amounts as always.
-    const pay = modelo.pagos.tipo === "entrega_inmediata"
-      ? h("div", { class: "f-pay-text", style: "font-size:" + (14 * pagoScale) + "px", text: modelo.pagos.textoContado || "PAGO DE CONTADO O CRÉDITO HIPOTECARIO" })
-      : renderPayTable(modelo, ficha, doc, pagoScale, !modelo.mostrarTablaNivel);
+    // "Esquema de pago" (the schedule table, or its "de contado" text
+    // alternative) can be switched off per modelo — independent of the
+    // level-pricing table above it, which has its own separate toggle.
+    const pay = modelo.mostrarEsquemaPago === false ? null : (
+      modelo.pagos.tipo === "entrega_inmediata"
+        ? h("div", { class: "f-pay-text", style: "font-size:" + (14 * pagoScale) + "px", text: modelo.pagos.textoContado || "PAGO DE CONTADO O CRÉDITO HIPOTECARIO" })
+        : renderPayTable(modelo, ficha, doc, pagoScale, !modelo.mostrarTablaNivel)
+    );
 
     const level = modelo.mostrarTablaNivel ? renderLevelTable(modelo, ficha, doc, pagoScale) : null;
 
-    // Level pricing (when active) sits above the payment schedule, not below.
-    const payWrap = h("div", { class: "f-pay-wrap" });
-    if (level) payWrap.appendChild(level);
-    payWrap.appendChild(pay);
-
     const wrap = h("div", { class: "f-model-wrap" });
     wrap.appendChild(row);
-    wrap.appendChild(payWrap);
+    // Skip the wrapper entirely when both are off — an empty one would
+    // still eat a flex `gap` on either side of nothing.
+    if (level || pay) {
+      // Level pricing (when active) sits above the payment schedule, not below.
+      const payWrap = h("div", { class: "f-pay-wrap" });
+      if (level) payWrap.appendChild(level);
+      if (pay) payWrap.appendChild(pay);
+      wrap.appendChild(payWrap);
+    }
     return wrap;
   }
 
