@@ -1877,11 +1877,16 @@
     const formCol = h("div", { class: "split2-form" });
     if (state.activeFichaId === "MAP") {
       formCol.appendChild(renderMapEditorPanel(state));
+      // Same thumbnail strip again at the bottom — after scrolling through
+      // a whole ficha's (or the mapa's) fields, jumping to another ficha
+      // shouldn't mean scrolling all the way back up first.
+      formCol.appendChild(renderTabsBar(state));
     } else {
       const f = S.getFicha(state.activeFichaId);
       if (f) {
         const isFirst = !!(state.document.fichas.length && f.id === state.document.fichas[0].id);
         formCol.appendChild(renderFichaEditor(f, isFirst));
+        formCol.appendChild(renderTabsBar(state));
       } else {
         wrap.appendChild(renderQuickStart(state));
       }
