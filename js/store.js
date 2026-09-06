@@ -78,7 +78,7 @@
   const FICHA_DESIGN_FIELDS = [
     "escalas", "estiloModeloNombre", "estiloModeloPrecio", "estiloModeloPrecioSub", "estiloModeloSpecs",
     "colorPrecioBadge", "estiloPrecioBadge", "colorPrecioBadgeTexto", "colorPagoHead", "estiloPagoHead", "colorPagoHeadTexto",
-    "colorNivelHead", "colorNivelHeadTexto",
+    "colorNivelHead", "colorNivelHeadTexto", "estiloNivelPrecio", "colorNivelPrecio", "estiloNivelPrecioSub", "colorNivelPrecioSub",
     "colorShowroom", "colorShowroomTexto", "estiloShowroom", "estiloTitulo", "estiloEyebrow", "estiloFranja",
     "estiloPagoConcepto", "colorPagoConcepto", "estiloPagoMomento", "colorPagoMomento",
     "estiloPagoMonto", "estiloPagoMontoSub",
@@ -161,6 +161,8 @@
       colorPrecioBadge: "#DDD4C2", estiloPrecioBadge: defaultTextStyle(), colorPrecioBadgeTexto: "#2A2621",
       colorPagoHead: "#DDD4C2", estiloPagoHead: defaultTextStyle(), colorPagoHeadTexto: "#2A2621",
       colorNivelHead: "#DDD4C2", colorNivelHeadTexto: "#2A2621",
+      estiloNivelPrecio: defaultTextStyle(), colorNivelPrecio: "#2A2621",
+      estiloNivelPrecioSub: defaultTextStyle(false), colorNivelPrecioSub: "#A69C8A",
       colorShowroom: "#2A2621", colorShowroomTexto: "#F1ECE2", estiloShowroom: defaultTextStyle(),
       estiloTitulo: defaultTextStyle(), estiloEyebrow: defaultTextStyle(), estiloFranja: defaultTextStyle(),
       estiloPagoConcepto: defaultTextStyle(), colorPagoConcepto: "#2A2621",
@@ -268,6 +270,10 @@
       colorPagoHeadTexto: "#2A2621",
       colorNivelHead: "#DDD4C2",
       colorNivelHeadTexto: "#2A2621",
+      estiloNivelPrecio: defaultTextStyle(),
+      colorNivelPrecio: "#2A2621",
+      estiloNivelPrecioSub: defaultTextStyle(false),
+      colorNivelPrecioSub: "#A69C8A",
       colorShowroom: "#2A2621",
       colorShowroomTexto: "#F1ECE2",
       estiloShowroom: defaultTextStyle(),
@@ -410,6 +416,10 @@
       if (!f.colorPagoHeadTexto) f.colorPagoHeadTexto = "#2A2621";
       if (!f.colorNivelHead) f.colorNivelHead = "#DDD4C2";
       if (!f.colorNivelHeadTexto) f.colorNivelHeadTexto = "#2A2621";
+      if (!f.estiloNivelPrecio) f.estiloNivelPrecio = defaultTextStyle();
+      if (!f.colorNivelPrecio) f.colorNivelPrecio = "#2A2621";
+      if (!f.estiloNivelPrecioSub) f.estiloNivelPrecioSub = defaultTextStyle(false);
+      if (!f.colorNivelPrecioSub) f.colorNivelPrecioSub = "#A69C8A";
       if (!f.colorPagoConcepto) f.colorPagoConcepto = "#2A2621";
       if (!f.colorPagoMomento) f.colorPagoMomento = "#766D5F";
       // "#DDD4C2" was the OLD factory default (light accent pill, matching

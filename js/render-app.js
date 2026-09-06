@@ -45,7 +45,7 @@
     "estiloEyebrow", "estiloTitulo", "estiloFranja", "estiloPagoMonto", "estiloPagoMontoSub",
     "estiloModeloNombre", "estiloModeloPrecio", "estiloModeloPrecioSub", "estiloModeloSpecs",
     "colorPrecioBadge", "estiloPrecioBadge", "colorPrecioBadgeTexto", "colorPagoHead", "estiloPagoHead", "colorPagoHeadTexto",
-    "colorNivelHead", "colorNivelHeadTexto",
+    "colorNivelHead", "colorNivelHeadTexto", "estiloNivelPrecio", "colorNivelPrecio", "estiloNivelPrecioSub", "colorNivelPrecioSub",
     "colorShowroom", "colorShowroomTexto", "estiloShowroom", "escalas",
     // Previously missing from this list — "aplicar a todas" silently never
     // mirrored the concepto/momento text style to the other fichas even
@@ -346,47 +346,52 @@
     return row;
   }
 
-  function colorStyleRow(label, ficha, colorKey, styleKey, fallbackColor, hideSize) {
-    const colorInput = h("input", { type: "color", class: "input", style: "max-width:44px; height:34px; padding:2px; flex:0 0 44px;" });
-    colorInput.value = ficha[colorKey] || fallbackColor;
-    colorInput.addEventListener("input", function () { ficha[colorKey] = colorInput.value; persistSilently(); });
-    return styleControlsRow(label + " (texto)", ficha[styleKey], colorInput, hideSize);
-  }
 
-  // Just a color swatch, no size/bold/italic/strike — for text whose size
-  // and weight are already covered by another control (or, for "Precio
-  // principal"/"secundario", deliberately follow the concepto/momento
-  // style instead of getting their own).
-  function colorOnlyRow(label, ficha, colorKey, fallbackColor) {
-    const colorInput = h("input", { type: "color", class: "input", style: "max-width:44px; height:34px; padding:2px; flex:0 0 44px;" });
-    colorInput.value = ficha[colorKey] || fallbackColor;
-    colorInput.addEventListener("input", function () { ficha[colorKey] = colorInput.value; persistSilently(); });
-    return h("div", { style: "display:flex; gap:10px; align-items:center; margin-bottom:10px;" }, [
-      h("span", { style: "min-width:120px; font-size:12.5px; font-weight:700;", text: label }),
-      colorInput,
-    ]);
-  }
+  // One compact "modo diseñador" row instead of two: label, optional size
+  // ±, optional N/K/T, and up to two color swatches, all on the same
+  // line. Before this, an element with both a style and a color got a
+  // styleControlsRow/colorStyleRow row followed by a SEPARATE colorOnlyRow
+  // row right under it for the exact same thing — doubling the panel's
+  // length for no added clarity. `opts.showSize`/`opts.showStyle` default
+  // to true whenever `opts.styleObj` is given; set either to false to drop
+  // just that part (e.g. "Desde" has no size control since it always
+  // matches the botones, "Precio principal" has no N/K/T since it always
+  // follows "Concepto").
+  function combinedRow(label, opts) {
+    opts = opts || {};
+    const styleObj = opts.styleObj || null;
+    const children = [h("span", { style: "min-width:150px; font-size:12.5px; font-weight:700;", text: label })];
 
-  // Size-only version of styleControlsRow — used for "Precio principal"/
-  // "secundario", whose font (negrita/cursiva/tachado) and color now
-  // deliberately follow the concepto/momento style instead of having their
-  // own, so only their independent size knob is left to show here.
-  function sizeOnlyRow(label, styleObj, hint) {
-    if (!styleObj) styleObj = S.defaultTextStyle();
-    const sizeInput = h("input", { type: "number", class: "input", style: "width:64px;", min: "-20", max: "80" });
-    sizeInput.value = styleObj.sizeDelta;
-    sizeInput.addEventListener("input", function () {
-      const clamped = Math.max(-20, Math.min(80, Number(sizeInput.value) || 0));
-      styleObj.sizeDelta = clamped;
-      persistSilently();
+    if (styleObj && opts.showSize !== false) {
+      const sizeInput = h("input", { type: "number", class: "input", style: "width:52px;", min: "-20", max: "80" });
+      sizeInput.value = styleObj.sizeDelta;
+      sizeInput.addEventListener("input", function () {
+        styleObj.sizeDelta = Math.max(-20, Math.min(80, Number(sizeInput.value) || 0));
+        persistSilently();
+      });
+      children.push(h("span", { class: "field-label", text: "±" }), sizeInput);
+    }
+    if (styleObj && opts.showStyle !== false) {
+      [["N", "bold"], ["K", "italic"], ["T", "strike"]].forEach(function (pair) {
+        const btn = h("button", { type: "button", class: "btn btn-sm" + (styleObj[pair[1]] ? " btn-primary" : ""), text: pair[0] });
+        btn.addEventListener("click", function () {
+          styleObj[pair[1]] = !styleObj[pair[1]];
+          btn.classList.toggle("btn-primary", !!styleObj[pair[1]]);
+          persistSilently();
+        });
+        children.push(btn);
+      });
+    }
+    (opts.colors || []).forEach(function (c) {
+      const input = h("input", { type: "color", class: "input", title: c.title || "", style: "max-width:32px; height:30px; padding:2px; flex:0 0 32px;" });
+      input.value = c.obj[c.key] || c.fallback;
+      input.addEventListener("input", function () { c.obj[c.key] = input.value; persistSilently(); });
+      children.push(input);
     });
-    const row = h("div", { style: "display:flex; gap:10px; align-items:center; margin-bottom:4px; flex-wrap:wrap;" }, [
-      h("span", { style: "min-width:120px; font-size:12.5px; font-weight:700;", text: label }),
-      h("span", { class: "field-label", text: "Tamaño ±" }), sizeInput,
-    ]);
-    const nodes = [row];
-    if (hint) nodes.push(h("p", { class: "field-hint", style: "margin:-4px 0 10px;", text: hint }));
-    return h("div", {}, nodes);
+
+    const row = h("div", { style: "display:flex; gap:7px; align-items:center; margin-bottom:6px; flex-wrap:wrap;" }, children);
+    if (!opts.hint) return row;
+    return h("div", {}, [row, h("p", { class: "field-hint", style: "margin:-2px 0 10px;", text: opts.hint })]);
   }
 
   function uploadSlot(src, label, onFile, onRemove) {
@@ -1194,88 +1199,136 @@
       ? "Ya hay un diseño predeterminado guardado, compartido entre todos tus dispositivos y con quien más uses esta app. Guardar de nuevo lo reemplaza con los ajustes de esta ficha."
       : "Toma los estilos, colores y escalas de ESTA ficha (más los del documento completo, arriba) y los deja como punto de partida para toda ficha o documento nuevo — en cualquier dispositivo, para cualquiera que use esta app." }));
 
-    // Everything below follows the same top-to-bottom order things actually
-    // appear on the printed ficha: título → botones → cada modelo (nombre,
-    // specs, precio, showroom, esquema de pago) → franja al final — así vas
-    // ajustando en el mismo orden en que vas mirando la vista en vivo, sin
-    // tener que subir y bajar entre secciones que no van en ese orden.
-    fichaSection.appendChild(styleControlsRow("Ciudad · tipo · entrega", ficha.estiloEyebrow));
-    fichaSection.appendChild(styleControlsRow("Título del desarrollo", ficha.estiloTitulo));
+    controls.appendChild(fichaSection);
 
+    // Everything below is grouped into one small section per element of the
+    // printed ficha — encabezado → botones → nombre/specs del modelo →
+    // precio "Desde" → showroom → tabla por nivel → esquema de pago →
+    // franja, the same order they actually appear in — with ONE row per
+    // element (size + N/K/T + color swatches together) instead of a size/
+    // style row followed by a separate row just for that same element's
+    // color. Easier to scan, and each group maps to one thing you can
+    // point at in the live preview instead of one long undifferentiated list.
+    const headerSection = h("div", { class: "modal-section" }, [h("h3", { text: "Encabezado de la ficha" })]);
+    headerSection.appendChild(combinedRow("Ciudad · tipo · entrega", { styleObj: ficha.estiloEyebrow }));
+    headerSection.appendChild(combinedRow("Título del desarrollo", { styleObj: ficha.estiloTitulo }));
+    controls.appendChild(headerSection);
+
+    const botonesSection = h("div", { class: "modal-section" }, [h("h3", { text: "Botones" })]);
     const visibleBotones = ficha.botones.filter(function (b) { return b.visible; });
     if (visibleBotones.length) {
       visibleBotones.forEach(function (b) {
-        const colorInput = h("input", { type: "color", class: "input", title: "Fondo del botón", style: "max-width:44px; height:34px; padding:2px; flex:0 0 44px;" });
-        colorInput.value = b.color || "#2A2621";
-        colorInput.addEventListener("input", function () { b.color = colorInput.value; persistSilently(); });
-        const colorTextoInput = h("input", { type: "color", class: "input", title: "Color del texto", style: "max-width:44px; height:34px; padding:2px; flex:0 0 44px;" });
-        colorTextoInput.value = b.colorTexto || "#F1ECE2";
-        colorTextoInput.addEventListener("input", function () { b.colorTexto = colorTextoInput.value; persistSilently(); });
-        const colorsWrap = h("div", { style: "display:flex; gap:6px;" }, [colorInput, colorTextoInput]);
-        fichaSection.appendChild(styleControlsRow("Texto de \"" + (b.texto || "botón") + "\"", b.estilo, colorsWrap));
+        botonesSection.appendChild(combinedRow("\"" + (b.texto || "Botón") + "\"", {
+          styleObj: b.estilo,
+          colors: [
+            { obj: b, key: "color", fallback: "#2A2621", title: "Fondo" },
+            { obj: b, key: "colorTexto", fallback: "#F1ECE2", title: "Texto" },
+          ],
+        }));
       });
-      fichaSection.appendChild(h("p", { class: "field-hint", style: "margin-top:-6px; margin-bottom:14px;", text: "El primer color es el fondo del botón, el segundo es el color del texto." }));
+      botonesSection.appendChild(h("p", { class: "field-hint", style: "margin-top:-2px;", text: "Primer color = fondo del botón, segundo = color del texto." }));
     } else {
-      fichaSection.appendChild(h("p", { class: "field-hint", text: "Esta ficha no tiene botones visibles todavía." }));
+      botonesSection.appendChild(h("p", { class: "field-hint", text: "Esta ficha no tiene botones visibles todavía." }));
     }
-    controls.appendChild(fichaSection);
+    controls.appendChild(botonesSection);
 
-    // Modelo text styles — shared by every modelo in this ficha (same as escalas).
-    const modeloSection = h("div", { class: "modal-section" }, [
-      h("h3", { text: "Modelos de esta ficha" }),
-      h("p", { class: "field-hint", style: "margin-bottom:10px;", text: "Se aplica a los " + ficha.modelos.length + " modelo(s) de esta ficha a la vez." }),
+    const nombreSection = h("div", { class: "modal-section" }, [
+      h("h3", { text: "Modelo — nombre y specs" }),
+      h("p", { class: "field-hint", style: "margin-bottom:8px;", text: "Se aplica a los " + ficha.modelos.length + " modelo(s) de esta ficha a la vez." }),
     ]);
-    modeloSection.appendChild(styleControlsRow("Nombre del modelo", ficha.estiloModeloNombre));
-    modeloSection.appendChild(styleControlsRow("Habitaciones, baños y m² (íconos y texto)", ficha.estiloModeloSpecs));
-    // No size control here on purpose — "Desde" always renders at the same
-    // size as the botones now (see render-ficha.js), so only its
-    // negrita/cursiva/tachado/color are left to adjust.
-    modeloSection.appendChild(colorStyleRow("Insignia \"Desde\"", ficha, "colorPrecioBadge", "estiloPrecioBadge", "#DDD4C2", true));
-    modeloSection.appendChild(colorOnlyRow("Texto \"Desde\"", ficha, "colorPrecioBadgeTexto", "#2A2621"));
-    modeloSection.appendChild(h("p", { class: "field-hint", style: "margin-top:-6px; margin-bottom:14px;", text: "El tamaño de \"Desde\" siempre iguala al de los botones (BROCHURE, RENDERS...)." }));
-    // Precio principal/secundario ya no tienen su propio negrita/cursiva/
-    // color: siguen exactamente los de "Concepto"/"Momento" (más abajo en
-    // este mismo panel), así que aquí solo queda su tamaño.
-    modeloSection.appendChild(sizeOnlyRow("Precio principal", ficha.estiloModeloPrecio, "La fuente y el color siguen a \"Concepto\", más abajo."));
-    modeloSection.appendChild(sizeOnlyRow("Precio secundario (otra moneda)", ficha.estiloModeloPrecioSub, "La fuente y el color siguen a \"Momento\", más abajo."));
+    nombreSection.appendChild(combinedRow("Nombre del modelo", { styleObj: ficha.estiloModeloNombre }));
+    nombreSection.appendChild(combinedRow("Habitaciones, baños y m²", { styleObj: ficha.estiloModeloSpecs }));
+    controls.appendChild(nombreSection);
+
+    const precioSection = h("div", { class: "modal-section" }, [h("h3", { text: "Precio \"Desde\"" })]);
+    // No size control on "Desde" — it always matches the botones now (see
+    // render-ficha.js) — and precio principal/secundario have no N/K/T of
+    // their own since they follow "Concepto"/"Momento" below.
+    precioSection.appendChild(combinedRow("Insignia \"Desde\"", {
+      styleObj: ficha.estiloPrecioBadge, showSize: false,
+      colors: [
+        { obj: ficha, key: "colorPrecioBadge", fallback: "#DDD4C2", title: "Fondo" },
+        { obj: ficha, key: "colorPrecioBadgeTexto", fallback: "#2A2621", title: "Texto" },
+      ],
+      hint: "El tamaño de \"Desde\" siempre iguala al de los botones.",
+    }));
+    precioSection.appendChild(combinedRow("Precio principal", {
+      styleObj: ficha.estiloModeloPrecio, showStyle: false,
+      hint: "La fuente y el color siguen a \"Concepto\", más abajo.",
+    }));
+    precioSection.appendChild(combinedRow("Precio secundario (otra moneda)", {
+      styleObj: ficha.estiloModeloPrecioSub, showStyle: false,
+      hint: "La fuente y el color siguen a \"Momento\", más abajo.",
+    }));
+    controls.appendChild(precioSection);
+
+    const showroomSection = h("div", { class: "modal-section" }, [h("h3", { text: "Botón Showroom" })]);
     const showsShowroom = ficha.modelos.some(function (m) { return m.mostrarShowroom; });
     if (showsShowroom) {
-      // Same "fondo + texto" pair as the botones above — Showroom now shares
-      // their exact look (dark ink fill, light text, arrow) instead of its
-      // old separate light-accent pill, so it gets the same two-swatch control.
-      const showroomColorInput = h("input", { type: "color", class: "input", title: "Fondo del botón", style: "max-width:44px; height:34px; padding:2px; flex:0 0 44px;" });
-      showroomColorInput.value = ficha.colorShowroom || "#2A2621";
-      showroomColorInput.addEventListener("input", function () { ficha.colorShowroom = showroomColorInput.value; persistSilently(); });
-      const showroomColorTextoInput = h("input", { type: "color", class: "input", title: "Color del texto", style: "max-width:44px; height:34px; padding:2px; flex:0 0 44px;" });
-      showroomColorTextoInput.value = ficha.colorShowroomTexto || "#F1ECE2";
-      showroomColorTextoInput.addEventListener("input", function () { ficha.colorShowroomTexto = showroomColorTextoInput.value; persistSilently(); });
-      const showroomColorsWrap = h("div", { style: "display:flex; gap:6px;" }, [showroomColorInput, showroomColorTextoInput]);
-      modeloSection.appendChild(styleControlsRow("Botón \"Showroom\" (texto)", ficha.estiloShowroom, showroomColorsWrap));
-      modeloSection.appendChild(h("p", { class: "field-hint", style: "margin-top:-6px; margin-bottom:14px;", text: "El primer color es el fondo del botón, el segundo es el color del texto." }));
+      // Same "fondo + texto" pair as the botones above — Showroom shares
+      // their exact look (dark ink fill, light text, arrow).
+      showroomSection.appendChild(combinedRow("Texto y fondo", {
+        styleObj: ficha.estiloShowroom,
+        colors: [
+          { obj: ficha, key: "colorShowroom", fallback: "#2A2621", title: "Fondo" },
+          { obj: ficha, key: "colorShowroomTexto", fallback: "#F1ECE2", title: "Texto" },
+        ],
+      }));
     } else {
-      modeloSection.appendChild(h("p", { class: "field-hint", text: "Activa \"Mostrar botón showroom\" en algún modelo para poder editar su estilo." }));
+      showroomSection.appendChild(h("p", { class: "field-hint", text: "Activa \"Mostrar botón showroom\" en algún modelo para poder editar su estilo." }));
     }
+    controls.appendChild(showroomSection);
+
+    const nivelSection = h("div", { class: "modal-section" }, [h("h3", { text: "Tabla de precios por nivel" })]);
     const showsNivelTabla = ficha.modelos.some(function (m) { return m.mostrarTablaNivel; });
     if (showsNivelTabla) {
-      modeloSection.appendChild(colorOnlyRow("Encabezado \"Nivel / Precio\" (fondo)", ficha, "colorNivelHead", "#DDD4C2"));
-      modeloSection.appendChild(colorOnlyRow("Encabezado \"Nivel / Precio\" (texto)", ficha, "colorNivelHeadTexto", "#2A2621"));
+      nivelSection.appendChild(combinedRow("Encabezado \"Nivel / Precio\"", {
+        colors: [
+          { obj: ficha, key: "colorNivelHead", fallback: "#DDD4C2", title: "Fondo" },
+          { obj: ficha, key: "colorNivelHeadTexto", fallback: "#2A2621", title: "Texto" },
+        ],
+      }));
+      nivelSection.appendChild(combinedRow("Monto principal", {
+        styleObj: ficha.estiloNivelPrecio,
+        colors: [{ obj: ficha, key: "colorNivelPrecio", fallback: "#2A2621", title: "Texto" }],
+      }));
+      nivelSection.appendChild(combinedRow("Monto secundario (≈ en otra moneda)", {
+        styleObj: ficha.estiloNivelPrecioSub,
+        colors: [{ obj: ficha, key: "colorNivelPrecioSub", fallback: "#A69C8A", title: "Texto" }],
+      }));
     } else {
-      modeloSection.appendChild(h("p", { class: "field-hint", text: "Activa \"Tabla de precios por nivel\" en algún modelo para poder editar el color de su encabezado." }));
+      nivelSection.appendChild(h("p", { class: "field-hint", text: "Activa \"Tabla de precios por nivel\" en algún modelo para poder editar sus colores y tamaños." }));
     }
-    modeloSection.appendChild(colorStyleRow("Barra \"Esquema de pago\"", ficha, "colorPagoHead", "estiloPagoHead", "#DDD4C2"));
-    modeloSection.appendChild(colorOnlyRow("Texto \"Esquema de pago\"", ficha, "colorPagoHeadTexto", "#2A2621"));
-    modeloSection.appendChild(colorStyleRow("Concepto (ENGANCHE, SALDO A LA ENTREGA...)", ficha, "colorPagoConcepto", "estiloPagoConcepto", "#2A2621"));
-    modeloSection.appendChild(colorStyleRow("Momento (AL FIRMAR, CONTRA ESCRITURA...)", ficha, "colorPagoMomento", "estiloPagoMomento", "#766D5F"));
-    modeloSection.appendChild(styleControlsRow("Montos del esquema de pago", ficha.estiloPagoMonto));
-    modeloSection.appendChild(styleControlsRow("Montos secundarios (≈ en otra moneda)", ficha.estiloPagoMontoSub));
-    modeloSection.appendChild(h("p", { class: "field-hint", style: "margin-top:-6px;", text: "Los montos solo se muestran cuando la ficha NO tiene activa la tabla de precios por nivel." }));
-    controls.appendChild(modeloSection);
+    controls.appendChild(nivelSection);
+
+    const pagoSection = h("div", { class: "modal-section" }, [h("h3", { text: "Esquema de pago" })]);
+    pagoSection.appendChild(combinedRow("Barra del encabezado", {
+      styleObj: ficha.estiloPagoHead,
+      colors: [
+        { obj: ficha, key: "colorPagoHead", fallback: "#DDD4C2", title: "Fondo" },
+        { obj: ficha, key: "colorPagoHeadTexto", fallback: "#2A2621", title: "Texto" },
+      ],
+    }));
+    pagoSection.appendChild(combinedRow("Concepto (ENGANCHE, SALDO A LA ENTREGA...)", {
+      styleObj: ficha.estiloPagoConcepto,
+      colors: [{ obj: ficha, key: "colorPagoConcepto", fallback: "#2A2621", title: "Texto" }],
+    }));
+    pagoSection.appendChild(combinedRow("Momento (AL FIRMAR, CONTRA ESCRITURA...)", {
+      styleObj: ficha.estiloPagoMomento,
+      colors: [{ obj: ficha, key: "colorPagoMomento", fallback: "#766D5F", title: "Texto" }],
+    }));
+    pagoSection.appendChild(combinedRow("Montos", { styleObj: ficha.estiloPagoMonto }));
+    pagoSection.appendChild(combinedRow("Montos secundarios (≈ en otra moneda)", {
+      styleObj: ficha.estiloPagoMontoSub,
+      hint: "Los montos solo se muestran cuando la ficha NO tiene activa la tabla de precios por nivel.",
+    }));
+    controls.appendChild(pagoSection);
 
     // Franja destacada renders after every modelo, at the very bottom of
     // the ficha — so its control lives at the bottom of the modal too.
     const franjaSection = h("div", { class: "modal-section" }, [h("h3", { text: "Franja destacada" })]);
     if (ficha.franjaActiva) {
-      franjaSection.appendChild(styleControlsRow("Texto de la franja", ficha.estiloFranja));
+      franjaSection.appendChild(combinedRow("Texto de la franja", { styleObj: ficha.estiloFranja }));
     } else {
       franjaSection.appendChild(h("p", { class: "field-hint", text: "Activa la franja destacada en la ficha para poder editar su estilo." }));
     }

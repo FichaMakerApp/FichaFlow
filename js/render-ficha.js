@@ -325,9 +325,9 @@
         const main = ficha.moneda === "USD" ? conv.usd : conv.mxn;
         const sub = ficha.moneda === "USD" ? conv.mxn : conv.usd;
         const subCur = ficha.moneda === "USD" ? "MXN" : "USD";
-        const col = [h("span", { class: "lt-price", style: "font-size:" + (16 * pagoScale) + "px", text: C.fmtMoney(main, ficha.moneda) })];
+        const col = [h("span", { class: "lt-price", style: textStyleCss(ficha.estiloNivelPrecio, 16 * pagoScale) + ";color:" + (ficha.colorNivelPrecio || "#2A2621"), text: C.fmtMoney(main, ficha.moneda) })];
         if (ficha.mostrarConversion) {
-          col.push(h("span", { class: "lt-price-sub", style: "font-size:" + (13 * pagoScale) + "px", text: "APROX. " + C.fmtMoney(sub, subCur) }));
+          col.push(h("span", { class: "lt-price-sub", style: textStyleCss(ficha.estiloNivelPrecioSub, 13 * pagoScale) + ";color:" + (ficha.colorNivelPrecioSub || "#A69C8A"), text: "APROX. " + C.fmtMoney(sub, subCur) }));
         }
         priceCell = h("div", { class: "lt-price-col" }, col);
       } else {
