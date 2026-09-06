@@ -230,7 +230,15 @@
     // level-pricing table above it, which has its own separate toggle.
     const pay = modelo.mostrarEsquemaPago === false ? null : (
       modelo.pagos.tipo === "entrega_inmediata"
-        ? h("div", { class: "f-pay-text", style: "font-size:" + (14 * pagoScale) + "px", text: modelo.pagos.textoContado || "PAGO DE CONTADO O CRÉDITO HIPOTECARIO" })
+        // Same fondo/texto as "Barra esquema de pago" — this text IS that
+        // header's stand-in when there's no table to put under it, so it
+        // should never look like a different, uncolored element just
+        // because "entrega inmediata" is selected instead of "preventa".
+        ? h("div", {
+            class: "f-pay-text",
+            style: "font-size:" + (14 * pagoScale) + "px;background:" + (ficha.colorPagoHead || "#DDD4C2") + ";color:" + (ficha.colorPagoHeadTexto || "#2A2621") + ";border-color:" + (ficha.colorPagoHead || "#DDD4C2"),
+            text: modelo.pagos.textoContado || "PAGO DE CONTADO O CRÉDITO HIPOTECARIO",
+          })
         : renderPayTable(modelo, ficha, doc, pagoScale, !modelo.mostrarTablaNivel)
     );
 
