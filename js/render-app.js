@@ -771,6 +771,9 @@
     const storageBtn = h("button", { type: "button", class: "btn btn-sm", style: "width:100%;", text: "📊 Ver almacenamiento" });
     storageBtn.addEventListener("click", function () { state.storagePanelOpen = true; state.railMenuOpen = false; persistStruct(); });
 
+    const savedDocsBtn = h("button", { type: "button", class: "btn btn-sm", style: "width:100%;", text: "📁 Documentos guardados (" + state.savedDocuments.length + ")" });
+    savedDocsBtn.addEventListener("click", function () { state.showSavedDocsPanel = true; state.railMenuOpen = false; persistStruct(); });
+
     // Guardar cambios and Modo oscuro stay permanently visible/reachable —
     // everything else (pasos, almacenamiento, modo diseñador, contadores)
     // lives behind a collapsible menu instead of always taking up space.
@@ -791,6 +794,7 @@
       railChildren.push(h("div", { class: "rail-dropdown" }, [
         stepper,
         storageBtn,
+        savedDocsBtn,
         designerBtn,
         h("div", { class: "rail-meta" }, [
           h("div", { class: "row" }, [h("span", { text: "Fichas" }), railMetaRefs.fichas]),
@@ -1376,9 +1380,37 @@
   // =========================================================
   function renderClientPanel(state) {
     const d = state.document;
-    return h("div", { class: "panel" }, [
+    const nodes = [
       h("h2", { text: "¿Para quién es el análisis?" }),
       h("p", { class: "desc", text: "\"Para\" y \"Elaborado por\" aparecen centrados en el encabezado de la primera página." }),
+    ];
+
+    // Editing a document you opened from "Documentos guardados" — local
+    // edits already autosave to THIS device like always, but the shared
+    // saved copy (the one you'd reopen from another device, or find again
+    // next time you're adding a property for this client) only updates
+    // when you explicitly save it back, same as "Guardar en biblioteca"
+    // already works for single fichas.
+    const activeSaved = state.activeSavedDocumentId && state.savedDocuments.find(function (sd) { return sd.id === state.activeSavedDocumentId; });
+    if (activeSaved) {
+      const saveBackBtn = h("button", { type: "button", class: "btn btn-sm btn-primary", text: "💾 Guardar cambios en \"" + activeSaved.name + "\"" });
+      saveBackBtn.addEventListener("click", function () {
+        saveBackBtn.disabled = true;
+        S.updateActiveSavedDocument().then(function () {
+          toast("Cambios guardados en \"" + activeSaved.name + "\".", 2400);
+          persistStruct();
+        }).catch(function () {
+          toast("No se pudo guardar (revisa tu conexión).", 3200);
+          saveBackBtn.disabled = false;
+        });
+      });
+      nodes.push(h("div", { style: "display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:-6px 0 14px; padding:10px 14px; background:var(--accent-wash); border-radius:8px;" }, [
+        h("span", { style: "font-size:12.5px; flex:1 1 260px;", text: "📁 Editando el documento guardado de \"" + activeSaved.name + "\" — los cambios de aquí no se suben solos." }),
+        saveBackBtn,
+      ]));
+    }
+
+    nodes.push(
       h("div", { class: "grid-2" }, [
         textField("Para (cliente)", d.clientName, function (v) { d.clientName = v; persistSilently(); }),
         textField("Elaborado por (asesor)", d.advisorName, function (v) { d.advisorName = v; persistSilently(); }),
@@ -1387,8 +1419,10 @@
         textField("Tipo de cambio · MXN por 1 USD", d.exchangeRate, function (v) {
           d.exchangeRate = C.num(v) || d.exchangeRate; persistSilently();
         }, { type: "number", hint: "Se aplica a todas las fichas que muestren conversión." }),
-      ]),
-    ]);
+      ])
+    );
+
+    return h("div", { class: "panel" }, nodes);
   }
 
   function addBlankFicha() {
@@ -1413,6 +1447,7 @@
     S.state.document = S.defaultDocument();
     S.state.activeFichaId = null;
     S.state.activeModeloIndex = 0;
+    S.state.activeSavedDocumentId = null;
     S.state.step = 1;
     persistStruct();
     toast("Documento nuevo listo.");
@@ -1434,8 +1469,16 @@
     ]);
     libCard.addEventListener("click", function () { state.showLibraryPanel = true; persistStruct(); });
 
+    const savedDocsCard = h("button", { type: "button", class: "qs-card" }, [
+      h("div", { class: "ic", text: "📁" }),
+      h("div", { class: "t", text: "Abrir un documento guardado" }),
+      h("div", { class: "d", text: state.savedDocuments.length + " documento(s) guardados por cliente." }),
+    ]);
+    savedDocsCard.addEventListener("click", function () { state.showSavedDocsPanel = true; persistStruct(); });
+
     grid.appendChild(newCard);
     grid.appendChild(libCard);
+    grid.appendChild(savedDocsCard);
     return h("div", { class: "panel" }, [
       h("p", { class: "eyebrow", text: "Inicio rápido" }),
       h("h2", { text: "¿Qué quieres hacer hoy?" }),
@@ -1528,6 +1571,86 @@
       h("div", { style: "display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;" }, [
         h("h2", { text: "Páginas guardadas (compartida)" }), closeBtn,
       ]),
+      grid,
+    ]);
+  }
+
+  // "Documentos guardados" — one level up from the library: instead of a
+  // single saved ficha, this saves the WHOLE open document (client name,
+  // every ficha, mapas) under a name, so a set of properties already sent
+  // to one client (e.g. "ALONSO") can be reopened and added to later
+  // instead of rebuilding it from scratch every time.
+  function renderSavedDocsPanel(state) {
+    if (!state.showSavedDocsPanel) return null;
+    const closeBtn = h("button", { class: "btn btn-sm btn-ghost", type: "button", text: "Cerrar" });
+    closeBtn.addEventListener("click", function () { state.showSavedDocsPanel = false; persistStruct(); });
+
+    const nameInput = h("input", { type: "text", class: "input", placeholder: "Ej. Alonso, Familia Torres…" });
+    nameInput.value = state.document.clientName || "";
+    const saveAsBtn = h("button", { class: "btn btn-sm btn-primary", type: "button", text: "💾 Guardar" });
+    saveAsBtn.addEventListener("click", function () {
+      const name = nameInput.value.trim();
+      if (!name) { toast("Ponle un nombre al documento primero — por ejemplo, el cliente."); return; }
+      saveAsBtn.disabled = true;
+      S.saveDocumentAs(name).then(function () {
+        toast("Documento guardado como \"" + name + "\" — se comparte con todos tus dispositivos.", 3200);
+        persistStruct();
+      }).catch(function () {
+        toast("No se pudo guardar el documento (revisa tu conexión).", 3200);
+        saveAsBtn.disabled = false;
+      });
+    });
+    const saveAsRow = h("div", { class: "field", style: "margin-bottom:18px;" }, [
+      h("span", { class: "field-label", text: "Guardar el documento que tienes abierto ahora, con un nombre nuevo" }),
+      h("div", { style: "display:flex; gap:8px;" }, [nameInput, saveAsBtn]),
+    ]);
+
+    const grid = h("div", { class: "card-grid" });
+    if (!state.savedDocuments.length) {
+      grid.appendChild(h("div", { class: "empty-hint", text: "Todavía no has guardado ningún documento con nombre." }));
+    }
+    const dateFmt = { day: "numeric", month: "short", year: "numeric" };
+    state.savedDocuments.forEach(function (entry) {
+      const isActive = state.activeSavedDocumentId === entry.id;
+      const openBtn = h("button", { class: "btn btn-sm btn-primary", type: "button", text: isActive ? "Abierto" : "Abrir" });
+      openBtn.disabled = isActive;
+      openBtn.addEventListener("click", function () {
+        if (!confirm(
+          "¿Abrir \"" + entry.name + "\"?\n\n" +
+          "El documento que tienes abierto ahora se reemplaza. Si tiene cambios que no guardaste (en biblioteca, PDF, o en otro documento con nombre), se pierden — esto no se puede deshacer."
+        )) return;
+        openBtn.disabled = true;
+        S.loadSavedDocument(entry.id).then(function () {
+          state.showSavedDocsPanel = false;
+          toast("Documento \"" + entry.name + "\" abierto.");
+          persistStruct();
+        }).catch(function () {
+          toast("No se pudo abrir el documento (revisa tu conexión).", 3200);
+          openBtn.disabled = false;
+        });
+      });
+      const delBtn = h("button", { class: "btn btn-sm btn-danger", type: "button", text: "Eliminar" });
+      delBtn.addEventListener("click", function () {
+        if (!confirm("¿Eliminar el documento guardado \"" + entry.name + "\"? Esto no borra las fichas de tu biblioteca, solo esta lista con nombre. No se puede deshacer.")) return;
+        S.deleteSavedDocument(entry.id).catch(function () {
+          toast("No se pudo eliminar (revisa tu conexión).", 3200);
+        });
+      });
+      grid.appendChild(h("div", { class: "page-card" }, [
+        h("div", { class: "body" }, [
+          h("div", { class: "name", text: entry.name }),
+          h("div", { class: "meta", text: "Actualizado " + new Date(entry.updatedAt).toLocaleDateString("es-MX", dateFmt) + (isActive ? " · abierto ahora" : "") }),
+          h("div", { class: "actions" }, [openBtn, delBtn]),
+        ]),
+      ]));
+    });
+
+    return h("div", { class: "panel library-panel" }, [
+      h("div", { style: "display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;" }, [
+        h("h2", { text: "Documentos guardados (compartida)" }), closeBtn,
+      ]),
+      h("p", { class: "desc", text: "El documento completo — todas sus fichas — bajo el nombre de un cliente. Ábrelo cuando quieras y sigue agregando propiedades sin empezar de cero." }),
+      saveAsRow,
       grid,
     ]);
   }
@@ -1923,6 +2046,9 @@
 
     const lib = renderLibraryPanel(state);
     if (lib) wrap.appendChild(lib);
+
+    const savedDocs = renderSavedDocsPanel(state);
+    if (savedDocs) wrap.appendChild(savedDocs);
 
     if (!state.document.fichas.length && state.activeFichaId !== "MAP") {
       wrap.appendChild(renderQuickStart(state));

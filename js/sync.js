@@ -112,6 +112,46 @@
     });
   }
 
+  // saved_documents: a whole DOCUMENT (client name, every ficha, mapas, the
+  // lot) saved under a name — e.g. "ALONSO" — so a set of properties
+  // already sent to one client can be reopened and added to later instead
+  // of rebuilding it from scratch. The library above saves single pages;
+  // this is the same idea one level up, for the whole thing you'd actually
+  // hand someone. Same two-step fetch as the library and for the same
+  // reason: `document` alone can carry several MB of embedded images
+  // across every ficha, and pulling every row's full document in one query
+  // is exactly what caused the library's timeout bug — id/name/dates load
+  // first (always fast), the full document only when you open one.
+  function listSavedDocumentsRemote() {
+    return client.from("saved_documents").select("id, name, saved_at, updated_at").order("updated_at", { ascending: false }).then(function (res) {
+      if (res.error) throw res.error;
+      return (res.data || []).map(function (row) {
+        return { id: row.id, name: row.name, savedAt: row.saved_at, updatedAt: row.updated_at };
+      });
+    });
+  }
+
+  function loadSavedDocumentRemote(id) {
+    return client.from("saved_documents").select("document").eq("id", id).maybeSingle().then(function (res) {
+      if (res.error) throw res.error;
+      return res.data ? res.data.document : null;
+    });
+  }
+
+  function saveSavedDocumentRemote(entry) {
+    return client.from("saved_documents").upsert({
+      id: entry.id, name: entry.name, saved_at: entry.savedAt, updated_at: entry.updatedAt, document: entry.document,
+    }).then(function (res) {
+      if (res.error) throw res.error;
+    });
+  }
+
+  function deleteSavedDocumentRemote(id) {
+    return client.from("saved_documents").delete().eq("id", id).then(function (res) {
+      if (res.error) throw res.error;
+    });
+  }
+
   window.Sync = {
     loadLibraryRemote: loadLibraryRemote,
     addLibraryEntryRemote: addLibraryEntryRemote,
@@ -122,5 +162,9 @@
     listDesignPresetsRemote: listDesignPresetsRemote,
     saveDesignPresetRemote: saveDesignPresetRemote,
     deleteDesignPresetRemote: deleteDesignPresetRemote,
+    listSavedDocumentsRemote: listSavedDocumentsRemote,
+    loadSavedDocumentRemote: loadSavedDocumentRemote,
+    saveSavedDocumentRemote: saveSavedDocumentRemote,
+    deleteSavedDocumentRemote: deleteSavedDocumentRemote,
   };
 })();

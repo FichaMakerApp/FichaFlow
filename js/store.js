@@ -735,6 +735,85 @@
     });
   }
 
+  // ---------- saved documents (named, whole-document snapshots) ----------
+  // "Guardar como documento con nombre" saves the CURRENT open document
+  // under a name (e.g. "ALONSO") to the shared saved_documents table.
+  // Opening one after that replaces the open document and remembers its
+  // id (activeSavedDocumentId), so later edits — adding another property,
+  // say — can be saved back onto that SAME row instead of only ever
+  // creating a new one, which is the whole point: a running record of
+  // what's already been sent to a given client, not a one-off export.
+  let lastSavedDocError = null;
+  function getLastSavedDocError() { return lastSavedDocError; }
+
+  function saveDocumentAs(name) {
+    const id = uid();
+    const now = Date.now();
+    return compressImagesForSync(state.document).then(function (compressedDoc) {
+      return Sync.saveSavedDocumentRemote({ id: id, name: name, savedAt: now, updatedAt: now, document: compressedDoc });
+    }).then(function () {
+      state.savedDocuments.unshift({ id: id, name: name, savedAt: now, updatedAt: now });
+      state.activeSavedDocumentId = id;
+      lastSavedDocError = null;
+      notify();
+      return id;
+    }).catch(function (e) {
+      console.error("No se pudo guardar el documento con nombre.", e);
+      lastSavedDocError = e;
+      throw e;
+    });
+  }
+
+  // Saves the open document back onto the saved_documents row it was
+  // loaded from (or last saved as) — same id, new updatedAt. This is what
+  // "agregar propiedades a ese mismo documento" actually needs: without
+  // it, adding a ficha after reopening "ALONSO" would only ever live
+  // locally on this device until you remembered to save-as again.
+  function updateActiveSavedDocument() {
+    const id = state.activeSavedDocumentId;
+    const existing = id && state.savedDocuments.find(function (d) { return d.id === id; });
+    if (!existing) return Promise.reject(new Error("No hay un documento guardado activo."));
+    const now = Date.now();
+    return compressImagesForSync(state.document).then(function (compressedDoc) {
+      return Sync.saveSavedDocumentRemote({ id: id, name: existing.name, savedAt: existing.savedAt, updatedAt: now, document: compressedDoc });
+    }).then(function () {
+      existing.updatedAt = now;
+      state.savedDocuments.sort(function (a, b) { return b.updatedAt - a.updatedAt; });
+      lastSavedDocError = null;
+      notify();
+    }).catch(function (e) {
+      console.error("No se pudo guardar los cambios en el documento.", e);
+      lastSavedDocError = e;
+      throw e;
+    });
+  }
+
+  function loadSavedDocument(id) {
+    return Sync.loadSavedDocumentRemote(id).then(function (doc) {
+      if (!doc) throw new Error("No se encontró el documento guardado.");
+      const normalized = normalizeDocument(doc);
+      state.document = normalized;
+      state.activeSavedDocumentId = id;
+      state.activeFichaId = normalized.fichas.length ? normalized.fichas[0].id : null;
+      state.activeModeloIndex = 0;
+      state.step = 1;
+      return persistDocument(normalized).then(function () { notify(); });
+    });
+  }
+
+  function deleteSavedDocument(id) {
+    const idx = state.savedDocuments.findIndex(function (d) { return d.id === id; });
+    const removed = idx !== -1 ? state.savedDocuments.splice(idx, 1)[0] : null;
+    if (state.activeSavedDocumentId === id) state.activeSavedDocumentId = null;
+    notify();
+    return Sync.deleteSavedDocumentRemote(id).catch(function (e) {
+      console.error("No se pudo eliminar el documento guardado.", e);
+      if (removed && idx !== -1) state.savedDocuments.splice(idx, 0, removed);
+      notify();
+      throw e;
+    });
+  }
+
   // ---------- store ----------
   // document/library/defaultDesign start empty and are filled in by init()
   // — reading them (IndexedDB for the document, Supabase for the shared
@@ -756,6 +835,9 @@
     planoEditor: null, // { src, modelo } while the plano background-eraser modal is open
     designerUnlocked: false,
     designerApplyToAll: false,
+    savedDocuments: [], // [{id, name, savedAt, updatedAt}] — lightweight list; see loadSavedDocument for the full one
+    activeSavedDocumentId: null, // which saved_documents row (if any) the open document was loaded from / is saved as
+    showSavedDocsPanel: false,
   };
 
   function init() {
@@ -813,6 +895,15 @@
         // made every open slow while pages kept re-attempting a broken
         // upload).
         if (remoteLibrary !== null) migrateLocalOnlyLibraryEntries(legacyLocal, remoteLibrary);
+      });
+      // Same "never block boot" treatment as the library — the list itself
+      // is light (no documents, just id/name/dates), but there's no reason
+      // to make boot wait on one more network round-trip either.
+      Sync.listSavedDocumentsRemote().then(function (rows) {
+        state.savedDocuments = rows;
+        notify();
+      }).catch(function (e) {
+        console.error("No se pudieron cargar los documentos guardados.", e);
       });
     });
   }
@@ -908,6 +999,11 @@
     saveDesignPreset: saveDesignPreset,
     deleteDesignPreset: deleteDesignPreset,
     applyDesignPreset: applyDesignPreset,
+    saveDocumentAs: saveDocumentAs,
+    updateActiveSavedDocument: updateActiveSavedDocument,
+    loadSavedDocument: loadSavedDocument,
+    deleteSavedDocument: deleteSavedDocument,
+    getLastSavedDocError: getLastSavedDocError,
     MAX_MODELOS: MAX_MODELOS,
     MAX_MAPAS: MAX_MAPAS,
     DESIGNER_PASSWORD: DESIGNER_PASSWORD,
