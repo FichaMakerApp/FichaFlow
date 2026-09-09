@@ -1399,9 +1399,13 @@
         S.updateActiveSavedDocument().then(function () {
           toast("Cambios guardados en \"" + activeSaved.name + "\".", 2400);
           persistStruct();
-        }).catch(function () {
-          toast("No se pudo guardar (revisa tu conexión).", 3200);
+        }).catch(function (e) {
           saveBackBtn.disabled = false;
+          alert(
+            "No se pudieron guardar los cambios en \"" + activeSaved.name + "\".\n\n" +
+            "Detalle: " + ((e && (e.message || e.details)) || "error desconocido") + "\n\n" +
+            "Revisa tu conexión e inténtalo de nuevo. Tus fichas siguen abiertas y guardadas en este dispositivo — no se perdió nada."
+          );
         });
       });
       nodes.push(h("div", { style: "display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:-6px 0 14px; padding:10px 14px; background:var(--accent-wash); border-radius:8px;" }, [
@@ -1590,14 +1594,26 @@
     const saveAsBtn = h("button", { class: "btn btn-sm btn-primary", type: "button", text: "💾 Guardar" });
     saveAsBtn.addEventListener("click", function () {
       const name = nameInput.value.trim();
-      if (!name) { toast("Ponle un nombre al documento primero — por ejemplo, el cliente."); return; }
+      if (!name) { nameInput.focus(); toast("Ponle un nombre al documento primero — por ejemplo, el cliente.", 3200); return; }
       saveAsBtn.disabled = true;
+      saveAsBtn.textContent = "Guardando…";
       S.saveDocumentAs(name).then(function () {
+        saveAsBtn.textContent = "💾 Guardar";
         toast("Documento guardado como \"" + name + "\" — se comparte con todos tus dispositivos.", 3200);
         persistStruct();
-      }).catch(function () {
-        toast("No se pudo guardar el documento (revisa tu conexión).", 3200);
+      }).catch(function (e) {
         saveAsBtn.disabled = false;
+        saveAsBtn.textContent = "💾 Guardar";
+        // A toast is easy to miss for something this important (it's the
+        // one case where "nothing visibly happened" and real work might
+        // have been lost) — same reasoning as the local-storage failure
+        // alert below, so this gets a blocking one too, with the actual
+        // error instead of a generic guess.
+        alert(
+          "No se pudo guardar el documento \"" + name + "\".\n\n" +
+          "Detalle: " + ((e && (e.message || e.details)) || "error desconocido") + "\n\n" +
+          "Revisa tu conexión e inténtalo de nuevo. Tus fichas siguen abiertas y guardadas en este dispositivo — no se perdió nada."
+        );
       });
     });
     const saveAsRow = h("div", { class: "field", style: "margin-bottom:18px;" }, [
