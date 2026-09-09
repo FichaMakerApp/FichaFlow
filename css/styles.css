@@ -516,15 +516,12 @@ label.btn input[type=file]{ position:absolute; inset:0; opacity:0; cursor:pointe
 
 /* map block inside doc */
 .f-map-page{ display:flex; flex-direction:column; gap:16px; }
-/* The map page reuses the same title classes as a regular ficha's title
+/* The map page reuses the same title class as a regular ficha's title
    block (which stays left-aligned, matching the brand template) — scoped
-   here so only the map page's own title centers, not every ficha. */
-.f-map-page .f-eyebrow, .f-map-page .f-h1{ text-align:center; }
+   here so only the map page's own title (one per map, the city name)
+   centers, not every ficha. */
+.f-map-page .f-h1{ text-align:center; }
 .f-map-block{ display:flex; flex-direction:column; gap:8px; }
-.f-map-label{
-  background:var(--ink); color:var(--stone); font-family:var(--font-display); font-weight:700;
-  font-size:13px; letter-spacing:.05em; text-transform:uppercase; text-align:center; padding:10px 14px; border-radius:4px;
-}
 .map-canvas-wrap{ position:relative; border-radius:6px; overflow:hidden; border:1px solid var(--stone-line); background:var(--surface); aspect-ratio:16/9; }
 .map-canvas-wrap.has-image{ background-size:cover; background-position:center; }
 /* The editing canvas uses a real <img> (so click coordinates can be read

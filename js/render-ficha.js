@@ -448,15 +448,17 @@
       ]);
       wrap.appendChild(pin);
     });
-    const nodes = [];
-    if (mapa.etiqueta) nodes.push(h("div", { class: "f-map-label", style: "font-size:" + (13 * gs) + "px", text: mapa.etiqueta }));
+    // The city name IS the heading now — typed directly where "Mapa" used
+    // to sit as a fixed label, instead of a separate small franja above
+    // the canvas plus a generic "Mapa"/"Mapas" title at the page level.
+    const nodes = [h("div", { class: "f-h1", style: "font-size:" + (34 * gs) + "px", text: mapa.etiqueta || "Mapa" })];
     nodes.push(wrap);
     return h("div", { class: "f-map-block" }, nodes);
   }
 
   function renderMapPage(doc) {
     // Up to MAX_MAPAS maps stacked on the same page — each with its own
-    // image, pins, and an optional label banner ("Playa del Carmen"...).
+    // image, pins, and its own heading (the city name).
     const gs = globalScaleOf(doc);
     const mapas = (doc.mapas && doc.mapas.length) ? doc.mapas : [{ imagen: null, pines: [], etiqueta: "" }];
     const blocks = [];
@@ -473,11 +475,7 @@
       mapPageStyle.push("--font-display:" + fo.display, "--font-body:" + fo.body, "--font-mono:" + fo.mono);
     }
     return h("div", { class: "ficha-page f-map-page", style: mapPageStyle.join(";") }, [
-      h("div", { class: "f-body no-header" }, [
-        h("div", { class: "f-eyebrow", style: "font-size:" + (13.5 * gs) + "px", text: "Ubicación de los proyectos" }),
-        h("div", { class: "f-h1", style: "font-size:" + (34 * gs) + "px", text: mapas.length > 1 ? "Mapas" : "Mapa" }),
-        h("div", { class: "f-rule" }),
-      ].concat(blocks)),
+      h("div", { class: "f-body no-header" }, blocks),
     ]);
   }
 

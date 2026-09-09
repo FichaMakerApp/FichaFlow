@@ -62,7 +62,7 @@
       refreshPreview();
     });
     block.appendChild(h("div", { class: "field", style: "margin-bottom:10px;" }, [
-      h("span", { class: "field-label", text: "Franja sobre este mapa (opcional)" }),
+      h("span", { class: "field-label", text: "Ciudad (título de este mapa)" }),
       etiquetaInput,
     ]));
 
