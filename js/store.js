@@ -622,9 +622,21 @@
   // field names (galeria[].src, modelos[].plano, paperImage, …) so any new
   // image field added later is covered automatically.
   const SYNC_MAX_IMAGE_DIM = 1600;
+  // A single ficha's "Guardar en biblioteca" only ever fires a handful of
+  // these concurrently, so an image whose onload/onerror never fires (rare,
+  // but real — a browser under memory pressure decoding many multi-MB
+  // photos at once) just meant that one page stalled. A whole "documento
+  // guardado" (several fichas, each with its own gallery + planos) can
+  // fire dozens of these at the same time, and Promise.all below means ONE
+  // stuck image hangs the entire save forever with no error, no timeout,
+  // nothing — exactly "le doy guardar y no pasa nada". Racing each one
+  // against a timeout (same fix already used for the same class of bug in
+  // pdf-export.js's waitForImages) means a slow/stuck image just gets
+  // synced uncompressed instead of blocking everything else.
+  function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
   function compressDataUrlForSync(dataUrl) {
-    return new Promise(function (resolve) {
-      if (typeof dataUrl !== "string" || dataUrl.indexOf("data:image/") !== 0) { resolve(dataUrl); return; }
+    if (typeof dataUrl !== "string" || dataUrl.indexOf("data:image/") !== 0) return Promise.resolve(dataUrl);
+    const compressed = new Promise(function (resolve) {
       const img = new Image();
       img.onload = function () {
         const w = img.naturalWidth, h = img.naturalHeight;
@@ -640,6 +652,7 @@
       img.onerror = function () { resolve(dataUrl); };
       img.src = dataUrl;
     });
+    return Promise.race([compressed, wait(4000).then(function () { return dataUrl; })]);
   }
   function compressImagesForSync(value) {
     if (Array.isArray(value)) return Promise.all(value.map(compressImagesForSync));
