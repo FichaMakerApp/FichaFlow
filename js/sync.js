@@ -112,24 +112,27 @@
     });
   }
 
-  // saved_documents / saved_document_fichas: a whole DOCUMENT (client name,
-  // every ficha, mapas, the lot) saved under a name — e.g. "ALONSO" — so a
-  // set of properties already sent to one client can be reopened and added
-  // to later instead of rebuilding it from scratch. The library above
-  // saves single pages; this is the same idea one level up, for the whole
-  // thing you'd actually hand someone.
+  // saved_documents / saved_document_fichas / saved_document_mapas: a whole
+  // DOCUMENT (client name, every ficha, mapas, the lot) saved under a name
+  // — e.g. "ALONSO" — so a set of properties already sent to one client
+  // can be reopened and added to later instead of rebuilding it from
+  // scratch. The library above saves single pages; this is the same idea
+  // one level up, for the whole thing you'd actually hand someone.
   //
-  // Split across two tables, each ficha its own row, for the exact same
-  // reason the library moved off one big query per page — writing (or
-  // reading) several fichas' worth of embedded images as ONE jsonb blob is
-  // easily large enough to hit Supabase's own statement timeout by itself;
-  // that's confirmed, not theoretical (it happened in testing with just 4
-  // real fichas). `saved_documents.meta` holds everything that ISN'T a
-  // ficha (client name, mapas, styles, and the fichas' order); each ficha
-  // lives in its own saved_document_fichas row, written and read ONE AT A
-  // TIME — not all at once, since concurrent large writes are exactly what
-  // made the library's own read timeout worse in the first place (see
-  // loadLibraryRemote above).
+  // Split across three tables, each ficha AND each mapa its own row, for
+  // the exact same reason the library moved off one big query per page —
+  // writing (or reading) several fichas'/mapas' worth of embedded images
+  // as ONE jsonb blob is easily large enough to hit Supabase's own
+  // statement timeout by itself; that's confirmed, not theoretical (it
+  // happened twice in real use — first with fichas bundled into meta,
+  // then again with just the mapas still bundled in after fichas were
+  // split out, since a mapa's own image can be just as large as a ficha's
+  // gallery). `saved_documents.meta` holds only what's left once both are
+  // taken out (client name, styles, exchange rate, and the fichas'/mapas'
+  // order); each ficha and each mapa lives in its own row, written and
+  // read ONE AT A TIME — not all at once, since concurrent large writes
+  // are exactly what made the library's own read timeout worse in the
+  // first place (see loadLibraryRemote above).
   function listSavedDocumentsRemote() {
     return client.from("saved_documents").select("id, name, saved_at, updated_at").order("updated_at", { ascending: false }).then(function (res) {
       if (res.error) throw res.error;
@@ -139,55 +142,60 @@
     });
   }
 
+  // Reads every row of `table` matching `saved_document_id` whose id is in
+  // `order`, one request at a time (see the note above on why), and
+  // returns them re-assembled in that same order. Shared by the ficha and
+  // mapa read paths below since they're otherwise identical.
+  function loadOrderedRows(table, column, documentId, order) {
+    let chain = Promise.resolve();
+    const out = [];
+    order.forEach(function (itemId) {
+      chain = chain.then(function () {
+        // Scoped to THIS document, not just the item's own id — two
+        // different saved documents can each hold their own copy of a
+        // ficha/mapa that was never modified since, so the id alone isn't
+        // unique across every saved document, only within one.
+        return client.from(table).select(column).eq("saved_document_id", documentId).eq("id", itemId).maybeSingle().then(function (r) {
+          if (r.error || !r.data) return; // one missing/bad row shouldn't sink the rest
+          out.push(r.data[column]);
+        }).catch(function () {});
+      });
+    });
+    return chain.then(function () { return out; });
+  }
+
   function loadSavedDocumentRemote(id) {
     return client.from("saved_documents").select("meta").eq("id", id).maybeSingle().then(function (res) {
       if (res.error) throw res.error;
       if (!res.data) return null;
       const meta = res.data.meta || {};
-      const order = meta.fichaOrder || [];
-      let chain = Promise.resolve();
-      const fichas = [];
-      order.forEach(function (fichaId) {
-        chain = chain.then(function () {
-          // Scoped to THIS document, not just the ficha id — two different
-          // saved documents can each hold their own copy of a ficha that
-          // was never modified since (duplicated, or the same library page
-          // added to both), so the ficha id alone isn't unique across every
-          // saved document, only within one.
-          return client.from("saved_document_fichas").select("ficha").eq("saved_document_id", id).eq("id", fichaId).maybeSingle().then(function (r) {
-            if (r.error || !r.data) return; // one missing/bad ficha row shouldn't sink the rest
-            fichas.push(r.data.ficha);
-          }).catch(function () {});
-        });
-      });
-      return chain.then(function () {
+      return Promise.all([
+        loadOrderedRows("saved_document_fichas", "ficha", id, meta.fichaOrder || []),
+        loadOrderedRows("saved_document_mapas", "mapa", id, meta.mapaOrder || []),
+      ]).then(function (results) {
         const doc = Object.assign({}, meta);
         delete doc.fichaOrder;
-        doc.fichas = fichas;
+        delete doc.mapaOrder;
+        doc.fichas = results[0];
+        doc.mapas = results[1];
         return doc;
       });
     });
   }
 
-  function saveSavedDocumentRemote(entry) {
-    const fichas = (entry.document && entry.document.fichas) || [];
-    const meta = Object.assign({}, entry.document);
-    delete meta.fichas;
-    meta.fichaOrder = fichas.map(function (f) { return f.id; });
-    return client.from("saved_documents").upsert({
-      id: entry.id, name: entry.name, saved_at: entry.savedAt, updated_at: entry.updatedAt, meta: meta,
-    }).then(function (res) {
-      if (res.error) throw res.error;
-      // Clear out fichas from a previous save of this same document that
-      // no longer exist (removed since) — simplest correct way to
-      // reconcile the set without diffing old vs new.
-      return client.from("saved_document_fichas").delete().eq("saved_document_id", entry.id);
-    }).then(function (res) {
+  // Replaces every row of `table` for this document with the current set
+  // — simplest correct way to reconcile "some fichas/mapas got removed
+  // since the last save" without diffing old vs new — writing them one at
+  // a time. Shared by the ficha and mapa write paths below.
+  function writeOrderedRows(table, column, documentId, items) {
+    return client.from(table).delete().eq("saved_document_id", documentId).then(function (res) {
       if (res.error) throw res.error;
       let chain = Promise.resolve();
-      fichas.forEach(function (f) {
+      items.forEach(function (item) {
         chain = chain.then(function () {
-          return client.from("saved_document_fichas").insert({ id: f.id, saved_document_id: entry.id, ficha: f }).then(function (r) {
+          const row = { id: item.id, saved_document_id: documentId };
+          row[column] = item;
+          return client.from(table).insert(row).then(function (r) {
             if (r.error) throw r.error;
           });
         });
@@ -196,8 +204,27 @@
     });
   }
 
+  function saveSavedDocumentRemote(entry) {
+    const fichas = (entry.document && entry.document.fichas) || [];
+    const mapas = (entry.document && entry.document.mapas) || [];
+    const meta = Object.assign({}, entry.document);
+    delete meta.fichas;
+    delete meta.mapas;
+    meta.fichaOrder = fichas.map(function (f) { return f.id; });
+    meta.mapaOrder = mapas.map(function (m) { return m.id; });
+    return client.from("saved_documents").upsert({
+      id: entry.id, name: entry.name, saved_at: entry.savedAt, updated_at: entry.updatedAt, meta: meta,
+    }).then(function (res) {
+      if (res.error) throw res.error;
+      return writeOrderedRows("saved_document_fichas", "ficha", entry.id, fichas);
+    }).then(function () {
+      return writeOrderedRows("saved_document_mapas", "mapa", entry.id, mapas);
+    });
+  }
+
   function deleteSavedDocumentRemote(id) {
-    // saved_document_fichas rows cascade-delete via the foreign key.
+    // saved_document_fichas/saved_document_mapas rows cascade-delete via
+    // the foreign key.
     return client.from("saved_documents").delete().eq("id", id).then(function (res) {
       if (res.error) throw res.error;
     });
