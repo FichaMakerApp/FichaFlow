@@ -112,27 +112,66 @@
     });
   }
 
-  // saved_documents / saved_document_fichas / saved_document_mapas: a whole
-  // DOCUMENT (client name, every ficha, mapas, the lot) saved under a name
-  // — e.g. "ALONSO" — so a set of properties already sent to one client
-  // can be reopened and added to later instead of rebuilding it from
-  // scratch. The library above saves single pages; this is the same idea
-  // one level up, for the whole thing you'd actually hand someone.
+  // saved_documents / saved_document_fichas / saved_document_mapas /
+  // saved_document_assets: a whole DOCUMENT (client name, every ficha,
+  // mapas, the lot) saved under a name — e.g. "ALONSO" — so a set of
+  // properties already sent to one client can be reopened and added to
+  // later instead of rebuilding it from scratch. The library above saves
+  // single pages; this is the same idea one level up, for the whole thing
+  // you'd actually hand someone.
   //
-  // Split across three tables, each ficha AND each mapa its own row, for
-  // the exact same reason the library moved off one big query per page —
-  // writing (or reading) several fichas'/mapas' worth of embedded images
-  // as ONE jsonb blob is easily large enough to hit Supabase's own
-  // statement timeout by itself; that's confirmed, not theoretical (it
-  // happened twice in real use — first with fichas bundled into meta,
-  // then again with just the mapas still bundled in after fichas were
-  // split out, since a mapa's own image can be just as large as a ficha's
-  // gallery). `saved_documents.meta` holds only what's left once both are
-  // taken out (client name, styles, exchange rate, and the fichas'/mapas'
-  // order); each ficha and each mapa lives in its own row, written and
-  // read ONE AT A TIME — not all at once, since concurrent large writes
-  // are exactly what made the library's own read timeout worse in the
-  // first place (see loadLibraryRemote above).
+  // This went through three shapes before landing here, each one found
+  // wanting by an actual real-world save, not by guessing:
+  //   1. The whole document as one jsonb blob — timed out on the write.
+  //   2. Fichas split into one row each — still timed out, because mapas
+  //      (a map screenshot is easily as big as a ficha's gallery) were
+  //      still bundled into the "meta" row.
+  //   3. Mapas split out too — STILL timed out, on a real 5-ficha
+  //      document, because a single ficha with several gallery photos and
+  //      a plano per modelo is, by itself, already too big for one write.
+  // So this goes all the way down: every individual IMAGE (any
+  // data:image/... string anywhere in the document) is pulled out into
+  // its own saved_document_assets row, and everything else keeps only a
+  // small {__assetRef:"..."} placeholder in its place. No single write
+  // this makes is ever bigger than one photo, however many fichas or
+  // mapas or photos-per-ficha the document has.
+  //
+  // Every read/write below still goes one row at a time, not
+  // Promise.all — concurrent large requests are exactly what made the
+  // library's own read timeout worse in the first place (see
+  // loadLibraryRemote above), and that's just as true for a document that
+  // can now easily be 20-30+ asset rows.
+
+  // Walks `value` and replaces every embedded image with a small
+  // {__assetRef:id} placeholder, collecting the real data into `assets`
+  // (an array `push`ed onto: {id, data}) as it goes.
+  function extractAssets(value, assets) {
+    if (Array.isArray(value)) return value.map(function (v) { return extractAssets(v, assets); });
+    if (value && typeof value === "object") {
+      const out = {};
+      Object.keys(value).forEach(function (k) { out[k] = extractAssets(value[k], assets); });
+      return out;
+    }
+    if (typeof value === "string" && value.indexOf("data:image/") === 0) {
+      const id = "a" + assets.length + Math.random().toString(36).slice(2, 8);
+      assets.push({ id: id, data: value });
+      return { __assetRef: id };
+    }
+    return value;
+  }
+  // The inverse: swaps every {__assetRef:id} placeholder back for the
+  // real image data, looked up from `assetMap` (id -> data).
+  function reinsertAssets(value, assetMap) {
+    if (Array.isArray(value)) return value.map(function (v) { return reinsertAssets(v, assetMap); });
+    if (value && typeof value === "object") {
+      if (typeof value.__assetRef === "string") return assetMap[value.__assetRef] || null;
+      const out = {};
+      Object.keys(value).forEach(function (k) { out[k] = reinsertAssets(value[k], assetMap); });
+      return out;
+    }
+    return value;
+  }
+
   function listSavedDocumentsRemote() {
     return client.from("saved_documents").select("id, name, saved_at, updated_at").order("updated_at", { ascending: false }).then(function (res) {
       if (res.error) throw res.error;
@@ -143,21 +182,25 @@
   }
 
   // Reads every row of `table` matching `saved_document_id` whose id is in
-  // `order`, one request at a time (see the note above on why), and
-  // returns them re-assembled in that same order. Shared by the ficha and
-  // mapa read paths below since they're otherwise identical.
+  // `order`, one request at a time, and returns them as an {id: value}
+  // map — NOT an array positionally matching `order`, since a single
+  // missing/bad row (caught below, so it can't sink the rest) would
+  // otherwise silently shift every entry after it out of alignment with
+  // whatever the caller zips the result back up against. Shared by the
+  // ficha, mapa and asset read paths below since they're otherwise
+  // identical.
   function loadOrderedRows(table, column, documentId, order) {
     let chain = Promise.resolve();
-    const out = [];
+    const out = {};
     order.forEach(function (itemId) {
       chain = chain.then(function () {
         // Scoped to THIS document, not just the item's own id — two
         // different saved documents can each hold their own copy of a
-        // ficha/mapa that was never modified since, so the id alone isn't
-        // unique across every saved document, only within one.
+        // ficha/mapa/asset that was never modified since, so the id alone
+        // isn't unique across every saved document, only within one.
         return client.from(table).select(column).eq("saved_document_id", documentId).eq("id", itemId).maybeSingle().then(function (r) {
           if (r.error || !r.data) return; // one missing/bad row shouldn't sink the rest
-          out.push(r.data[column]);
+          out[itemId] = r.data[column];
         }).catch(function () {});
       });
     });
@@ -168,25 +211,33 @@
     return client.from("saved_documents").select("meta").eq("id", id).maybeSingle().then(function (res) {
       if (res.error) throw res.error;
       if (!res.data) return null;
-      const meta = res.data.meta || {};
+      const shellMeta = res.data.meta || {};
+      const fichaOrder = shellMeta.fichaOrder || [];
+      const mapaOrder = shellMeta.mapaOrder || [];
+      const assetIds = shellMeta.assetIds || [];
       return Promise.all([
-        loadOrderedRows("saved_document_fichas", "ficha", id, meta.fichaOrder || []),
-        loadOrderedRows("saved_document_mapas", "mapa", id, meta.mapaOrder || []),
+        loadOrderedRows("saved_document_fichas", "ficha", id, fichaOrder),
+        loadOrderedRows("saved_document_mapas", "mapa", id, mapaOrder),
+        loadOrderedRows("saved_document_assets", "data", id, assetIds),
       ]).then(function (results) {
-        const doc = Object.assign({}, meta);
+        const fichaMap = results[0], mapaMap = results[1], assetMap = results[2];
+        const doc = reinsertAssets(Object.assign({}, shellMeta), assetMap);
         delete doc.fichaOrder;
         delete doc.mapaOrder;
-        doc.fichas = results[0];
-        doc.mapas = results[1];
+        delete doc.assetIds;
+        // Filter(Boolean) drops any ficha/mapa whose row genuinely
+        // couldn't be read, instead of leaving a hole in the array.
+        doc.fichas = fichaOrder.map(function (fid) { return fichaMap[fid]; }).filter(Boolean).map(function (f) { return reinsertAssets(f, assetMap); });
+        doc.mapas = mapaOrder.map(function (mid) { return mapaMap[mid]; }).filter(Boolean).map(function (m) { return reinsertAssets(m, assetMap); });
         return doc;
       });
     });
   }
 
   // Replaces every row of `table` for this document with the current set
-  // — simplest correct way to reconcile "some fichas/mapas got removed
-  // since the last save" without diffing old vs new — writing them one at
-  // a time. Shared by the ficha and mapa write paths below.
+  // — simplest correct way to reconcile "some fichas/mapas/assets got
+  // removed since the last save" without diffing old vs new — writing
+  // them one at a time. Shared by the ficha, mapa and asset write paths.
   function writeOrderedRows(table, column, documentId, items) {
     return client.from(table).delete().eq("saved_document_id", documentId).then(function (res) {
       if (res.error) throw res.error;
@@ -194,7 +245,7 @@
       items.forEach(function (item) {
         chain = chain.then(function () {
           const row = { id: item.id, saved_document_id: documentId };
-          row[column] = item;
+          row[column] = item[column] !== undefined ? item[column] : item;
           return client.from(table).insert(row).then(function (r) {
             if (r.error) throw r.error;
           });
@@ -205,13 +256,19 @@
   }
 
   function saveSavedDocumentRemote(entry) {
-    const fichas = (entry.document && entry.document.fichas) || [];
-    const mapas = (entry.document && entry.document.mapas) || [];
-    const meta = Object.assign({}, entry.document);
+    const assets = [];
+    // Pulls every image (in meta, every ficha, every mapa — anywhere) out
+    // into `assets` up front, so nothing written below ever carries a
+    // real image; each is its own row from here on.
+    const shellDoc = extractAssets(entry.document || {}, assets);
+    const fichas = shellDoc.fichas || [];
+    const mapas = shellDoc.mapas || [];
+    const meta = Object.assign({}, shellDoc);
     delete meta.fichas;
     delete meta.mapas;
     meta.fichaOrder = fichas.map(function (f) { return f.id; });
     meta.mapaOrder = mapas.map(function (m) { return m.id; });
+    meta.assetIds = assets.map(function (a) { return a.id; });
     return client.from("saved_documents").upsert({
       id: entry.id, name: entry.name, saved_at: entry.savedAt, updated_at: entry.updatedAt, meta: meta,
     }).then(function (res) {
@@ -219,12 +276,14 @@
       return writeOrderedRows("saved_document_fichas", "ficha", entry.id, fichas);
     }).then(function () {
       return writeOrderedRows("saved_document_mapas", "mapa", entry.id, mapas);
+    }).then(function () {
+      return writeOrderedRows("saved_document_assets", "data", entry.id, assets);
     });
   }
 
   function deleteSavedDocumentRemote(id) {
-    // saved_document_fichas/saved_document_mapas rows cascade-delete via
-    // the foreign key.
+    // saved_document_fichas/saved_document_mapas/saved_document_assets
+    // rows cascade-delete via the foreign key.
     return client.from("saved_documents").delete().eq("id", id).then(function (res) {
       if (res.error) throw res.error;
     });
