@@ -210,16 +210,24 @@
         : null,
     ]);
 
-    // Fixed pixel width instead of a flex percentage basis: CSS `zoom` does not
-    // reliably resize a flex item whose size comes from flex-basis, so the
-    // plano size control computes its own width directly.
-    const planoBaseWidth = 336; // ~46% of the 736px content width
-    const planoW = Math.round(planoBaseWidth * (escalas.plano / 100));
-    const planoWrap = h("div", { class: "f-plano", style: "flex:0 0 auto; width:" + planoW + "px;" }, [
-      modelo.plano ? img(modelo.plano, "") : ph("", "plano")
-    ]);
-
-    const row = h("div", { class: "f-model" }, [planoWrap, specs]);
+    // No plano uploaded — instead of reserving its space with an empty
+    // placeholder box, drop it entirely and let the specs block become the
+    // only thing in the row, centered to the document's own content width
+    // (see .f-model-no-plano) rather than sitting shoved to one side of a
+    // gap nothing fills.
+    let row;
+    if (modelo.plano) {
+      // Fixed pixel width instead of a flex percentage basis: CSS `zoom`
+      // does not reliably resize a flex item whose size comes from
+      // flex-basis, so the plano size control computes its own width
+      // directly.
+      const planoBaseWidth = 336; // ~46% of the 736px content width
+      const planoW = Math.round(planoBaseWidth * (escalas.plano / 100));
+      const planoWrap = h("div", { class: "f-plano", style: "flex:0 0 auto; width:" + planoW + "px;" }, [img(modelo.plano, "")]);
+      row = h("div", { class: "f-model" }, [planoWrap, specs]);
+    } else {
+      row = h("div", { class: "f-model f-model-no-plano" }, [specs]);
+    }
 
     const pagoScale = (escalas.pago || 100) / 100 * gs;
     // Amounts per row only get hidden when the level-pricing table is also

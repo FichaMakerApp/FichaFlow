@@ -408,13 +408,22 @@ label.btn input[type=file]{ position:absolute; inset:0; opacity:0; cursor:pointe
 .f-model{ display:flex; gap:24px; align-items:center; justify-content:center; min-width:0; }
 .f-plano{ flex:0 0 auto; min-width:0; }
 .f-plano img{ width:100%; display:block; }
-.f-plano .ph{ width:100%; aspect-ratio:4/3; border:1px solid var(--stone-line); border-radius:4px; background:var(--surface); }
 /* min-width:0 is load-bearing here: without it a flex child never shrinks
    below its text's natural (unwrapped) width, so a large plano size would
    push this column's price/name text straight off the edge of the page
    instead of wrapping onto another line. */
 .f-specs{ flex:0 1 340px; min-width:0; display:flex; flex-direction:column; gap:10px; justify-content:center; }
 .f-model-name{ font-family:var(--font-display); font-weight:700; font-size:17px; overflow-wrap:break-word; }
+
+/* No plano uploaded for this modelo — instead of the specs column sitting
+   off to one side of empty space, it becomes the only thing in the row
+   (see render-ficha.js) and gets to use more of the document's own width,
+   centered, with every line inside it centered too instead of just the
+   block itself. */
+.f-model-no-plano .f-specs{ flex:0 1 480px; align-items:center; text-align:center; }
+.f-model-no-plano .f-icon-row, .f-model-no-plano .f-surface-line{ justify-content:center; }
+.f-model-no-plano .f-price-block{ align-items:center; }
+.f-model-no-plano .f-showroom{ align-self:center; }
 
 .f-icon-row{ display:flex; align-items:center; gap:22px; }
 .f-icon-item{ display:flex; align-items:center; gap:8px; }
