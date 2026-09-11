@@ -413,14 +413,24 @@ label.btn input[type=file]{ position:absolute; inset:0; opacity:0; cursor:pointe
    push this column's price/name text straight off the edge of the page
    instead of wrapping onto another line. */
 .f-specs{ flex:0 1 340px; min-width:0; display:flex; flex-direction:column; gap:10px; justify-content:center; }
-.f-model-name{ font-family:var(--font-display); font-weight:700; font-size:17px; overflow-wrap:break-word; }
+/* pre-line keeps a manual Enter in the name as its own line while still
+   wrapping normally if a line runs long — a plain <div> otherwise
+   collapses every newline the way HTML always has. */
+.f-model-name{ font-family:var(--font-display); font-weight:700; font-size:17px; overflow-wrap:break-word; white-space:pre-line; }
 
 /* No plano uploaded for this modelo — instead of the specs column sitting
    off to one side of empty space, it becomes the only thing in the row
    (see render-ficha.js) and gets to use more of the document's own width,
    centered, with every line inside it centered too instead of just the
    block itself. */
-.f-model-no-plano .f-specs{ flex:0 1 480px; align-items:center; text-align:center; }
+/* Full width, not a fixed pixel cap — a fixed cap doesn't grow with the
+   "tamaño de specs" scale slider, so at anything above 100% the text
+   wraps sooner than it needs to even though there's real room left on
+   the page. No align-items:center here: .f-specs is a flex column, so
+   centering the cross-axis would shrink every child (the name, the
+   price...) down to its own content width instead of letting it use
+   the full row — text-align:center on the text itself is enough. */
+.f-model-no-plano .f-specs{ flex:1 1 auto; width:100%; text-align:center; }
 .f-model-no-plano .f-icon-row, .f-model-no-plano .f-surface-line{ justify-content:center; }
 .f-model-no-plano .f-price-block{ align-items:center; }
 .f-model-no-plano .f-showroom{ align-self:center; }

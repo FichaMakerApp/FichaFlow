@@ -1836,7 +1836,7 @@
 
   function renderModeloBody(container, ficha, modelo) {
     container.appendChild(h("div", { class: "grid-2" }, [
-      textField("Nombre del modelo", modelo.nombre, function (v) { modelo.nombre = v; persistSilently(); }),
+      textField("Nombre del modelo", modelo.nombre, function (v) { modelo.nombre = v; persistSilently(); }, { textarea: true, hint: "Enter para partirlo en otra línea tú mismo." }),
       textField("Superficie m²", modelo.superficieM2, function (v) { modelo.superficieM2 = v; persistSilently(); }, { type: "number" }),
     ]));
     container.appendChild(h("div", { class: "grid-3" }, [
