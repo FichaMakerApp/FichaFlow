@@ -77,7 +77,8 @@
   // document, so it survives "Nuevo documento" and applies across the board.
   const FICHA_DESIGN_FIELDS = [
     "escalas", "estiloModeloNombre", "estiloModeloPrecio", "colorModeloPrecio", "estiloModeloPrecioSub", "colorModeloPrecioSub", "estiloModeloSpecs",
-    "colorPrecioBadge", "estiloPrecioBadge", "colorPrecioBadgeTexto", "colorPagoHead", "estiloPagoHead", "colorPagoHeadTexto",
+    "colorPrecioBadge", "estiloPrecioBadge", "colorPrecioBadgeTexto", "colorTipoBadge", "estiloTipoBadge", "colorTipoBadgeTexto",
+    "colorPagoHead", "estiloPagoHead", "colorPagoHeadTexto",
     "colorNivelHead", "colorNivelHeadTexto", "estiloNivelPrecio", "colorNivelPrecio", "estiloNivelPrecioSub", "colorNivelPrecioSub",
     "colorShowroom", "colorShowroomTexto", "estiloShowroom", "estiloTitulo", "estiloEyebrow", "estiloFranja",
     "estiloPagoConcepto", "colorPagoConcepto", "estiloPagoMomento", "colorPagoMomento",
@@ -159,6 +160,7 @@
       estiloModeloNombre: defaultTextStyle(), estiloModeloPrecio: defaultTextStyle(), colorModeloPrecio: "#2A2621",
       estiloModeloPrecioSub: defaultTextStyle(), colorModeloPrecioSub: "#766D5F", estiloModeloSpecs: defaultTextStyle(),
       colorPrecioBadge: "#DDD4C2", estiloPrecioBadge: defaultTextStyle(), colorPrecioBadgeTexto: "#2A2621",
+      colorTipoBadge: "#DDD4C2", estiloTipoBadge: defaultTextStyle(), colorTipoBadgeTexto: "#2A2621",
       colorPagoHead: "#DDD4C2", estiloPagoHead: defaultTextStyle(), colorPagoHeadTexto: "#2A2621",
       colorNivelHead: "#DDD4C2", colorNivelHeadTexto: "#2A2621",
       estiloNivelPrecio: defaultTextStyle(), colorNivelPrecio: "#2A2621",
@@ -268,6 +270,9 @@
       colorPrecioBadge: "#DDD4C2",
       estiloPrecioBadge: defaultTextStyle(),
       colorPrecioBadgeTexto: "#2A2621",
+      colorTipoBadge: "#DDD4C2",
+      estiloTipoBadge: defaultTextStyle(),
+      colorTipoBadgeTexto: "#2A2621",
       colorPagoHead: "#DDD4C2",
       estiloPagoHead: defaultTextStyle(),
       colorPagoHeadTexto: "#2A2621",
@@ -418,6 +423,9 @@
       if (!f.colorPrecioBadge) f.colorPrecioBadge = "#DDD4C2";
       if (!f.estiloPrecioBadge) f.estiloPrecioBadge = defaultTextStyle();
       if (!f.colorPrecioBadgeTexto) f.colorPrecioBadgeTexto = "#2A2621";
+      if (!f.colorTipoBadge) f.colorTipoBadge = "#DDD4C2";
+      if (!f.estiloTipoBadge) f.estiloTipoBadge = defaultTextStyle();
+      if (!f.colorTipoBadgeTexto) f.colorTipoBadgeTexto = "#2A2621";
       if (!f.colorPagoHead) f.colorPagoHead = "#DDD4C2";
       if (!f.estiloPagoHead) f.estiloPagoHead = defaultTextStyle();
       if (!f.colorPagoHeadTexto) f.colorPagoHeadTexto = "#2A2621";

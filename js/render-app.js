@@ -44,7 +44,8 @@
   const FICHA_STYLE_FIELDS = [
     "estiloEyebrow", "estiloTitulo", "estiloFranja", "estiloPagoMonto", "colorPagoMonto", "estiloPagoMontoSub", "colorPagoMontoSub",
     "estiloModeloNombre", "estiloModeloPrecio", "colorModeloPrecio", "estiloModeloPrecioSub", "colorModeloPrecioSub", "estiloModeloSpecs",
-    "colorPrecioBadge", "estiloPrecioBadge", "colorPrecioBadgeTexto", "colorPagoHead", "estiloPagoHead", "colorPagoHeadTexto",
+    "colorPrecioBadge", "estiloPrecioBadge", "colorPrecioBadgeTexto", "colorTipoBadge", "estiloTipoBadge", "colorTipoBadgeTexto",
+    "colorPagoHead", "estiloPagoHead", "colorPagoHeadTexto",
     "colorNivelHead", "colorNivelHeadTexto", "estiloNivelPrecio", "colorNivelPrecio", "estiloNivelPrecioSub", "colorNivelPrecioSub",
     "colorShowroom", "colorShowroomTexto", "estiloShowroom", "escalas",
     // Previously missing from this list — "aplicar a todas" silently never
@@ -1214,8 +1215,15 @@
     // color. Easier to scan, and each group maps to one thing you can
     // point at in the live preview instead of one long undifferentiated list.
     const headerSection = h("div", { class: "modal-section" }, [h("h3", { text: "Encabezado de la ficha" })]);
-    headerSection.appendChild(combinedRow("Ciudad · tipo · entrega", { styleObj: ficha.estiloEyebrow }));
     headerSection.appendChild(combinedRow("Título del desarrollo", { styleObj: ficha.estiloTitulo }));
+    headerSection.appendChild(combinedRow("Insignia \"Tipo de propiedad\"", {
+      styleObj: ficha.estiloTipoBadge,
+      colors: [
+        { obj: ficha, key: "colorTipoBadge", fallback: "#DDD4C2", title: "Fondo" },
+        { obj: ficha, key: "colorTipoBadgeTexto", fallback: "#2A2621", title: "Texto" },
+      ],
+    }));
+    headerSection.appendChild(combinedRow("Ciudad · entrega", { styleObj: ficha.estiloEyebrow }));
     controls.appendChild(headerSection);
 
     const botonesSection = h("div", { class: "modal-section" }, [h("h3", { text: "Botones" })]);

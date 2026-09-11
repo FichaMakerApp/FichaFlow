@@ -132,7 +132,15 @@
     gs = gs || 1;
     return h("div", { class: "f-title-block" }, [
       h("div", { class: "f-h1", style: textStyleCss(ficha.estiloTitulo, 34 * gs), text: ficha.desarrollo || "NOMBRE DEL DESARROLLO" }),
-      h("div", { class: "f-eyebrow", style: textStyleCss(ficha.estiloEyebrow, 13.5 * gs), text: line([ficha.ciudad, ficha.tipoPropiedad, ficha.entrega]) || "CIUDAD · TIPO · ENTREGA" }),
+      // Its own badge now, not folded into the eyebrow line — background
+      // and text color are per-ficha, and display:inline-block (see CSS)
+      // keeps the fill snug around "DEPARTAMENTO" instead of stretching
+      // into a full-width bar.
+      h("div", {
+        class: "f-tipo-badge", text: ficha.tipoPropiedad || "TIPO DE PROPIEDAD",
+        style: "background:" + (ficha.colorTipoBadge || "#DDD4C2") + ";color:" + (ficha.colorTipoBadgeTexto || "#2A2621") + ";" + textStyleCss(ficha.estiloTipoBadge, 12.5 * gs),
+      }),
+      h("div", { class: "f-eyebrow", style: textStyleCss(ficha.estiloEyebrow, 13.5 * gs), text: line([ficha.ciudad, ficha.entrega]) || "CIUDAD · ENTREGA" }),
     ]);
   }
 
