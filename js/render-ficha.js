@@ -396,10 +396,13 @@
     // modelo ends and the next begins — the page turns into one dense wall
     // of specs/precio/tabla-de-pago. A heavier divider only between
     // modelos (never used for the title/botones/franja rules) gives the
-    // eye an actual break in that specific case.
-    const modelDividerClass = ficha.modelos.length > 2 ? "f-rule f-rule-model" : "f-rule";
+    // eye an actual break in that specific case — color/grosor editable in
+    // modo diseñador (see .f-rule-model's CSS default for the fallback).
+    const modelDividerStyle = "background:" + (ficha.colorDivisorModelo || "#2A2621") + ";height:" + (ficha.grosorDivisorModelo || 2) + "px;";
     ficha.modelos.forEach(function (m, i) {
-      if (i > 0) body.push(h("div", { class: modelDividerClass }));
+      if (i > 0) body.push(ficha.modelos.length > 2
+        ? h("div", { class: "f-rule f-rule-model", style: modelDividerStyle })
+        : h("div", { class: "f-rule" }));
       body.push(renderModelBlock(ficha, m, doc, gs));
     });
 

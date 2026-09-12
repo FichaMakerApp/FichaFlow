@@ -47,7 +47,7 @@
     "colorPrecioBadge", "estiloPrecioBadge", "colorPrecioBadgeTexto", "colorTipoBadge", "estiloTipoBadge", "colorTipoBadgeTexto",
     "colorPagoHead", "estiloPagoHead", "colorPagoHeadTexto",
     "colorNivelHead", "colorNivelHeadTexto", "estiloNivelPrecio", "colorNivelPrecio", "estiloNivelPrecioSub", "colorNivelPrecioSub",
-    "colorShowroom", "colorShowroomTexto", "estiloShowroom", "escalas",
+    "colorShowroom", "colorShowroomTexto", "estiloShowroom", "colorDivisorModelo", "grosorDivisorModelo", "escalas",
     // Previously missing from this list — "aplicar a todas" silently never
     // mirrored the concepto/momento text style to the other fichas even
     // though every other payment/price style did.
@@ -293,12 +293,13 @@
     ]);
   }
 
-  function rangeField(label, value, min, max, onChange) {
+  function rangeField(label, value, min, max, onChange, unit) {
+    unit = unit || "%";
     const input = h("input", { type: "range", min: String(min), max: String(max), class: "input" });
     input.value = value;
-    const valLabel = h("span", { class: "field-hint", text: value + "%" });
+    const valLabel = h("span", { class: "field-hint", text: value + unit });
     input.addEventListener("input", function () {
-      valLabel.textContent = input.value + "%";
+      valLabel.textContent = input.value + unit;
       onChange(Number(input.value));
     });
     return h("div", { class: "field" }, [h("span", { class: "field-label", text: label }), input, valLabel]);
@@ -1243,6 +1244,18 @@
       botonesSection.appendChild(h("p", { class: "field-hint", text: "Esta ficha no tiene botones visibles todavía." }));
     }
     controls.appendChild(botonesSection);
+
+    const divisorSection = h("div", { class: "modal-section" }, [h("h3", { text: "Divisor entre modelos" })]);
+    const divisorColorInput = h("input", { type: "color", class: "input", title: "Color", style: "max-width:32px; height:30px; padding:2px; flex:0 0 32px;" });
+    divisorColorInput.value = ficha.colorDivisorModelo || "#2A2621";
+    divisorColorInput.addEventListener("input", function () { ficha.colorDivisorModelo = divisorColorInput.value; persistSilently(); });
+    divisorSection.appendChild(h("div", { style: "display:flex; gap:7px; align-items:center; margin-bottom:6px; flex-wrap:wrap;" }, [
+      h("span", { style: "min-width:150px; font-size:12.5px; font-weight:700;", text: "Color" }),
+      divisorColorInput,
+    ]));
+    divisorSection.appendChild(rangeField("Grosor", ficha.grosorDivisorModelo || 2, 1, 6, function (v) { ficha.grosorDivisorModelo = v; persistSilently(); }, "px"));
+    divisorSection.appendChild(h("p", { class: "field-hint", text: "Solo se ve cuando esta ficha tiene 3 o más modelos." }));
+    controls.appendChild(divisorSection);
 
     const nombreSection = h("div", { class: "modal-section" }, [
       h("h3", { text: "Modelo — nombre y specs" }),

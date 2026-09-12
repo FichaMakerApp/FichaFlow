@@ -84,7 +84,7 @@
     "colorPrecioBadge", "estiloPrecioBadge", "colorPrecioBadgeTexto", "colorTipoBadge", "estiloTipoBadge", "colorTipoBadgeTexto",
     "colorPagoHead", "estiloPagoHead", "colorPagoHeadTexto",
     "colorNivelHead", "colorNivelHeadTexto", "estiloNivelPrecio", "colorNivelPrecio", "estiloNivelPrecioSub", "colorNivelPrecioSub",
-    "colorShowroom", "colorShowroomTexto", "estiloShowroom", "estiloTitulo", "estiloEyebrow", "estiloFranja",
+    "colorShowroom", "colorShowroomTexto", "estiloShowroom", "colorDivisorModelo", "grosorDivisorModelo", "estiloTitulo", "estiloEyebrow", "estiloFranja",
     "estiloPagoConcepto", "colorPagoConcepto", "estiloPagoMomento", "colorPagoMomento",
     "estiloPagoMonto", "colorPagoMonto", "estiloPagoMontoSub", "colorPagoMontoSub",
   ];
@@ -170,6 +170,7 @@
       estiloNivelPrecio: defaultTextStyle(), colorNivelPrecio: "#2A2621",
       estiloNivelPrecioSub: defaultTextStyle(false), colorNivelPrecioSub: "#A69C8A",
       colorShowroom: "#2A2621", colorShowroomTexto: "#F1ECE2", estiloShowroom: defaultTextStyle(),
+      colorDivisorModelo: "#2A2621", grosorDivisorModelo: 2,
       estiloTitulo: defaultTextStyle(), estiloEyebrow: defaultTextStyle(), estiloFranja: defaultTextStyle(),
       estiloPagoConcepto: defaultTextStyle(), colorPagoConcepto: "#2A2621",
       estiloPagoMomento: defaultTextStyle(false), colorPagoMomento: "#766D5F",
@@ -290,6 +291,9 @@
       colorShowroom: "#2A2621",
       colorShowroomTexto: "#F1ECE2",
       estiloShowroom: defaultTextStyle(),
+      // Only shown once the ficha has 3+ modelos (see render-ficha.js).
+      colorDivisorModelo: "#2A2621",
+      grosorDivisorModelo: 2,
       franjaActiva: false,
       franjaTexto: "",
       estiloTitulo: defaultTextStyle(),
@@ -451,6 +455,8 @@
       if (!f.colorShowroom || f.colorShowroom === "#DDD4C2") f.colorShowroom = "#2A2621";
       if (!f.colorShowroomTexto) f.colorShowroomTexto = "#F1ECE2";
       if (!f.estiloShowroom) f.estiloShowroom = defaultTextStyle();
+      if (!f.colorDivisorModelo) f.colorDivisorModelo = "#2A2621";
+      if (!f.grosorDivisorModelo) f.grosorDivisorModelo = 2;
       if (!f.escalas) {
         const fromModelo = (f.modelos && f.modelos[0] && f.modelos[0].escalas) || { plano: 100, specs: 100, pago: 100 };
         f.escalas = fromModelo;
