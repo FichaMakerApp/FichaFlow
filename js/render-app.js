@@ -1920,6 +1920,13 @@
         [{ value: "preventa", label: "Preventa" }, { value: "entrega_inmediata", label: "Entrega inmediata" }],
         modelo.pagos.tipo, function (v) { modelo.pagos.tipo = v; persistStruct(); }
       ), "Cada modelo conserva el suyo."));
+      // Meaningless with "entrega inmediata" (no table, just the texto de
+      // pago) or with la tabla por nivel activa (that already hides montos
+      // on its own) — only offered where it actually changes something.
+      if (modelo.pagos.tipo !== "entrega_inmediata" && !modelo.mostrarTablaNivel) {
+        container.appendChild(toggleRow("Mostrar montos", "Apágalo para dejar solo porcentaje, concepto y momento, centrados — sin la columna de montos.", modelo.mostrarMontosPago !== false,
+          function (v) { modelo.mostrarMontosPago = v; persistStruct(); }));
+      }
       renderPagoRows(container, ficha, modelo);
     }
   }

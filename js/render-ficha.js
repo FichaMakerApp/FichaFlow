@@ -240,12 +240,14 @@
     }
 
     const pagoScale = (escalas.pago || 100) / 100 * gs;
-    // Amounts per row only get hidden when the level-pricing table is also
-    // showing (that's when they'd be redundant, sitting right below level
-    // prices). Otherwise the payment schedule shows amounts as always.
-    // "Esquema de pago" (the schedule table, or its "de contado" text
-    // alternative) can be switched off per modelo — independent of the
-    // level-pricing table above it, which has its own separate toggle.
+    // Amounts per row get hidden either when the level-pricing table is
+    // also showing (they'd be redundant, sitting right below level prices)
+    // or when someone explicitly turns them off (modelo.mostrarMontosPago)
+    // to leave just porcentaje/concepto/momento, centered — e.g. when the
+    // real price isn't public yet. "Esquema de pago" (the schedule table,
+    // or its "de contado" text alternative) can be switched off per modelo
+    // — independent of both of those.
+    const showAmounts = !modelo.mostrarTablaNivel && modelo.mostrarMontosPago !== false;
     const pay = modelo.mostrarEsquemaPago === false ? null : (
       modelo.pagos.tipo === "entrega_inmediata"
         // Same fondo/texto as "Barra esquema de pago" — this text IS that
@@ -257,7 +259,7 @@
             style: "font-size:" + (14 * pagoScale) + "px;background:" + (ficha.colorPagoHead || "#DDD4C2") + ";color:" + (ficha.colorPagoHeadTexto || "#2A2621") + ";border-color:" + (ficha.colorPagoHead || "#DDD4C2"),
             text: modelo.pagos.textoContado || "PAGO DE CONTADO O CRÉDITO HIPOTECARIO",
           })
-        : renderPayTable(modelo, ficha, doc, pagoScale, !modelo.mostrarTablaNivel)
+        : renderPayTable(modelo, ficha, doc, pagoScale, showAmounts)
     );
 
     const level = modelo.mostrarTablaNivel ? renderLevelTable(modelo, ficha, doc, pagoScale) : null;
@@ -297,10 +299,11 @@
             : null,
         ]));
       }
-      // No amounts (showAmounts=false) means the level pricing table is
-      // active above this — the row only has the concepto/momento block
-      // left, and flexbox's justify-content:space-between just shoves a
-      // single leftover item to the start, hence the unwanted left-align.
+      // No amounts (showAmounts=false, either the level table is active
+      // above this or the toggle is explicitly off) means the row only
+      // has the concepto/momento block left, and flexbox's
+      // justify-content:space-between just shoves a single leftover item
+      // to the start, hence the unwanted left-align.
       return h("div", { class: "f-pay-row" + (showAmounts ? "" : " f-pay-row-centered") }, children);
     });
     return h("div", { class: "f-pay-table" }, [

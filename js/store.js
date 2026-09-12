@@ -58,6 +58,10 @@
         { id: uid(), nombre: "PLANTA BAJA", precio: "" },
       ],
       mostrarEsquemaPago: true,
+      // Off leaves just porcentaje/concepto/momento, centered — no montos
+      // column — same look the level-pricing table already forces when
+      // it's active, now available on its own too.
+      mostrarMontosPago: true,
       pagos: {
         tipo: "preventa", // 'preventa' | 'entrega_inmediata'
         textoContado: "PAGO DE CONTADO O CRÉDITO HIPOTECARIO",
@@ -496,6 +500,10 @@
         // ficha made before this toggle existed would silently lose its
         // payment schedule the moment it's opened again.
         if (typeof m.mostrarEsquemaPago !== "boolean") m.mostrarEsquemaPago = true;
+        // Same default-true reasoning as mostrarEsquemaPago above — an
+        // older modelo missing this flag showed montos, so it must keep
+        // showing them until someone actually turns the new toggle off.
+        if (typeof m.mostrarMontosPago !== "boolean") m.mostrarMontosPago = true;
         // Plano/información size used to be shared across every modelo in
         // the ficha (f.escalas, above) — now each modelo keeps its own, so
         // a ficha with several can size each one independently. Seed it
