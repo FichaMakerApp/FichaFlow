@@ -48,7 +48,17 @@
         chain = chain.then(function () {
           return client.from("library_pages").select("ficha").eq("id", row.id).maybeSingle().then(function (full) {
             if (full.error || !full.data) return;
-            out.push({ id: row.id, savedAt: row.saved_at, ficha: full.data.ficha });
+            const shellFicha = full.data.ficha || {};
+            // __assetIds is missing on a page saved before this fix — its
+            // ficha never had its images pulled out to begin with, so
+            // reinsertAssets below (nothing to look up) just hands the
+            // same object back unchanged.
+            const assetIds = shellFicha.__assetIds || [];
+            return loadOrderedRows("library_page_assets", "data", "page_id", row.id, assetIds).then(function (assetMap) {
+              const ficha = reinsertAssets(Object.assign({}, shellFicha), assetMap);
+              delete ficha.__assetIds;
+              out.push({ id: row.id, savedAt: row.saved_at, ficha: ficha });
+            });
           }).catch(function () {});
         });
       });
@@ -56,9 +66,18 @@
     });
   }
 
+  // Same statement-timeout failure as saved_documents (see below) hits a
+  // single library page too — one ficha's own gallery + per-modelo planos
+  // can already be too big for one write. Same fix: every image goes into
+  // its own library_page_assets row, and the ficha keeps only a small
+  // {__assetRef} placeholder plus the list of ids to fetch back.
   function addLibraryEntryRemote(entry) {
-    return client.from("library_pages").insert({ id: entry.id, saved_at: entry.savedAt, ficha: entry.ficha }).then(function (res) {
+    const assets = [];
+    const shellFicha = extractAssets(entry.ficha || {}, assets);
+    shellFicha.__assetIds = assets.map(function (a) { return a.id; });
+    return client.from("library_pages").insert({ id: entry.id, saved_at: entry.savedAt, ficha: shellFicha }).then(function (res) {
       if (res.error) throw res.error;
+      return writeOrderedRows("library_page_assets", "data", "page_id", entry.id, assets);
     });
   }
 
@@ -181,24 +200,24 @@
     });
   }
 
-  // Reads every row of `table` matching `saved_document_id` whose id is in
-  // `order`, one request at a time, and returns them as an {id: value}
+  // Reads every row of `table` matching `fkColumn = ownerId` whose id is
+  // in `order`, one request at a time, and returns them as an {id: value}
   // map — NOT an array positionally matching `order`, since a single
   // missing/bad row (caught below, so it can't sink the rest) would
   // otherwise silently shift every entry after it out of alignment with
   // whatever the caller zips the result back up against. Shared by the
-  // ficha, mapa and asset read paths below since they're otherwise
-  // identical.
-  function loadOrderedRows(table, column, documentId, order) {
+  // saved-document ficha/mapa/asset read paths and the library-page asset
+  // read path below since they're otherwise identical.
+  function loadOrderedRows(table, column, fkColumn, ownerId, order) {
     let chain = Promise.resolve();
     const out = {};
     order.forEach(function (itemId) {
       chain = chain.then(function () {
-        // Scoped to THIS document, not just the item's own id — two
-        // different saved documents can each hold their own copy of a
-        // ficha/mapa/asset that was never modified since, so the id alone
-        // isn't unique across every saved document, only within one.
-        return client.from(table).select(column).eq("saved_document_id", documentId).eq("id", itemId).maybeSingle().then(function (r) {
+        // Scoped to THIS owner (document or library page), not just the
+        // item's own id — two different owners can each hold their own
+        // copy of a ficha/mapa/asset that was never modified since, so the
+        // id alone isn't unique across every owner, only within one.
+        return client.from(table).select(column).eq(fkColumn, ownerId).eq("id", itemId).maybeSingle().then(function (r) {
           if (r.error || !r.data) return; // one missing/bad row shouldn't sink the rest
           out[itemId] = r.data[column];
         }).catch(function () {});
@@ -216,9 +235,9 @@
       const mapaOrder = shellMeta.mapaOrder || [];
       const assetIds = shellMeta.assetIds || [];
       return Promise.all([
-        loadOrderedRows("saved_document_fichas", "ficha", id, fichaOrder),
-        loadOrderedRows("saved_document_mapas", "mapa", id, mapaOrder),
-        loadOrderedRows("saved_document_assets", "data", id, assetIds),
+        loadOrderedRows("saved_document_fichas", "ficha", "saved_document_id", id, fichaOrder),
+        loadOrderedRows("saved_document_mapas", "mapa", "saved_document_id", id, mapaOrder),
+        loadOrderedRows("saved_document_assets", "data", "saved_document_id", id, assetIds),
       ]).then(function (results) {
         const fichaMap = results[0], mapaMap = results[1], assetMap = results[2];
         const doc = reinsertAssets(Object.assign({}, shellMeta), assetMap);
@@ -234,17 +253,19 @@
     });
   }
 
-  // Replaces every row of `table` for this document with the current set
-  // — simplest correct way to reconcile "some fichas/mapas/assets got
+  // Replaces every row of `table` for this owner with the current set —
+  // simplest correct way to reconcile "some fichas/mapas/assets got
   // removed since the last save" without diffing old vs new — writing
-  // them one at a time. Shared by the ficha, mapa and asset write paths.
-  function writeOrderedRows(table, column, documentId, items) {
-    return client.from(table).delete().eq("saved_document_id", documentId).then(function (res) {
+  // them one at a time. Shared by the saved-document ficha/mapa/asset
+  // write paths and the library-page asset write path below.
+  function writeOrderedRows(table, column, fkColumn, ownerId, items) {
+    return client.from(table).delete().eq(fkColumn, ownerId).then(function (res) {
       if (res.error) throw res.error;
       let chain = Promise.resolve();
       items.forEach(function (item) {
         chain = chain.then(function () {
-          const row = { id: item.id, saved_document_id: documentId };
+          const row = { id: item.id };
+          row[fkColumn] = ownerId;
           row[column] = item[column] !== undefined ? item[column] : item;
           return client.from(table).insert(row).then(function (r) {
             if (r.error) throw r.error;
@@ -273,11 +294,11 @@
       id: entry.id, name: entry.name, saved_at: entry.savedAt, updated_at: entry.updatedAt, meta: meta,
     }).then(function (res) {
       if (res.error) throw res.error;
-      return writeOrderedRows("saved_document_fichas", "ficha", entry.id, fichas);
+      return writeOrderedRows("saved_document_fichas", "ficha", "saved_document_id", entry.id, fichas);
     }).then(function () {
-      return writeOrderedRows("saved_document_mapas", "mapa", entry.id, mapas);
+      return writeOrderedRows("saved_document_mapas", "mapa", "saved_document_id", entry.id, mapas);
     }).then(function () {
-      return writeOrderedRows("saved_document_assets", "data", entry.id, assets);
+      return writeOrderedRows("saved_document_assets", "data", "saved_document_id", entry.id, assets);
     });
   }
 
