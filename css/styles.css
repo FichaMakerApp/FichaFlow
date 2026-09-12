@@ -400,7 +400,7 @@ label.btn input[type=file]{ position:absolute; inset:0; opacity:0; cursor:pointe
   font-weight:700; font-size:12.5px; letter-spacing:.08em; text-transform:uppercase; padding:.4em .9em; border-radius:4px; line-height:1.2;
 }
 .f-rule{ height:1px; background:var(--stone-line); }
-/* Heavier break used only between modelos once a ficha has 3+ of them (see
+/* Heavier break used only between modelos once a ficha has 2+ of them (see
    renderFichaPage) — a plain hairline reads as too weak to segment a tall
    stack of modelo blocks, making the page feel like one dense wall of
    text. --ink (near-black in the ficha's own palette) instead of the pale

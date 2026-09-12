@@ -1254,7 +1254,7 @@
       divisorColorInput,
     ]));
     divisorSection.appendChild(rangeField("Grosor", ficha.grosorDivisorModelo || 2, 1, 6, function (v) { ficha.grosorDivisorModelo = v; persistSilently(); }, "px"));
-    divisorSection.appendChild(h("p", { class: "field-hint", text: "Solo se ve cuando esta ficha tiene 3 o más modelos." }));
+    divisorSection.appendChild(h("p", { class: "field-hint", text: "Solo se ve cuando esta ficha tiene 2 o más modelos." }));
     controls.appendChild(divisorSection);
 
     const nombreSection = h("div", { class: "modal-section" }, [

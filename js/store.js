@@ -291,7 +291,7 @@
       colorShowroom: "#2A2621",
       colorShowroomTexto: "#F1ECE2",
       estiloShowroom: defaultTextStyle(),
-      // Only shown once the ficha has 3+ modelos (see render-ficha.js).
+      // Only shown once the ficha has 2+ modelos (see render-ficha.js).
       colorDivisorModelo: "#2A2621",
       grosorDivisorModelo: 2,
       franjaActiva: false,

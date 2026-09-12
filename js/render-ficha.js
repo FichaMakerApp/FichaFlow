@@ -391,8 +391,8 @@
     body.push(h("div", { class: "f-rule" }));
 
     // Up to 10 modelos, each stacked in the same full block — never side by
-    // side. Past 2 modelos on one page, a plain hairline (same weight as
-    // every other divider on the page) reads as too weak to tell where one
+    // side. With 2+ on one page, a plain hairline (same weight as every
+    // other divider on the page) reads as too weak to tell where one
     // modelo ends and the next begins — the page turns into one dense wall
     // of specs/precio/tabla-de-pago. A heavier divider only between
     // modelos (never used for the title/botones/franja rules) gives the
@@ -400,9 +400,7 @@
     // modo diseñador (see .f-rule-model's CSS default for the fallback).
     const modelDividerStyle = "background:" + (ficha.colorDivisorModelo || "#2A2621") + ";height:" + (ficha.grosorDivisorModelo || 2) + "px;";
     ficha.modelos.forEach(function (m, i) {
-      if (i > 0) body.push(ficha.modelos.length > 2
-        ? h("div", { class: "f-rule f-rule-model", style: modelDividerStyle })
-        : h("div", { class: "f-rule" }));
+      if (i > 0) body.push(h("div", { class: "f-rule f-rule-model", style: modelDividerStyle }));
       body.push(renderModelBlock(ficha, m, doc, gs));
     });
 
