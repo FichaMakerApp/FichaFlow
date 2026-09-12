@@ -1860,10 +1860,10 @@
       "Se sube tal cual, sin editar la imagen. También puedes pegar una imagen copiada: clic en el recuadro y Ctrl+V."));
 
     container.appendChild(h("div", { class: "block-divider", style: "margin-top:6px;" }));
-    container.appendChild(h("p", { class: "field-hint", style: "margin-bottom:8px;", text: "Tamaño de cada panel — se aplica a todos los modelos de esta ficha" }));
+    container.appendChild(h("p", { class: "field-hint", style: "margin-bottom:8px;", text: "Plano e información son de este modelo; tabla de pago se aplica a todos los modelos de esta ficha." }));
     container.appendChild(h("div", { class: "grid-3" }, [
-      rangeField("Plano", ficha.escalas.plano, 60, 160, function (v) { ficha.escalas.plano = v; persistSilently(); }),
-      rangeField("Información", ficha.escalas.specs, 60, 160, function (v) { ficha.escalas.specs = v; persistSilently(); }),
+      rangeField("Plano", modelo.escalas.plano, 60, 160, function (v) { modelo.escalas.plano = v; persistSilently(); }),
+      rangeField("Información", modelo.escalas.specs, 60, 160, function (v) { modelo.escalas.specs = v; persistSilently(); }),
       rangeField("Tabla de pago", ficha.escalas.pago, 60, 160, function (v) { ficha.escalas.pago = v; persistSilently(); }),
     ]));
 

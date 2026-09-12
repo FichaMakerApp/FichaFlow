@@ -46,6 +46,10 @@
       banos: "",
       precioBase: "",
       plano: null, // dataURL
+      // Plano/información size is per-modelo (unlike escalas.pago on the
+      // ficha, shared on purpose) — with several modelos in one ficha,
+      // each one's plano/photo can need its own crop-to-fit size.
+      escalas: { plano: 100, specs: 100 },
       mostrarShowroom: false,
       showroomEnlace: "",
       showroomTexto: "Showroom",
@@ -156,7 +160,7 @@
       estiloHeaderTitulo: defaultTextStyle(), estiloHeaderPara: defaultTextStyle(), estiloHeaderElaboradoPor: defaultTextStyle(),
     },
     ficha: {
-      escalas: { plano: 100, specs: 100, pago: 100 },
+      escalas: { pago: 100 }, // plano/specs scale now lives on each modelo, not here
       estiloModeloNombre: defaultTextStyle(), estiloModeloPrecio: defaultTextStyle(), colorModeloPrecio: "#2A2621",
       estiloModeloPrecioSub: defaultTextStyle(), colorModeloPrecioSub: "#766D5F", estiloModeloSpecs: defaultTextStyle(),
       colorPrecioBadge: "#DDD4C2", estiloPrecioBadge: defaultTextStyle(), colorPrecioBadgeTexto: "#2A2621",
@@ -259,8 +263,9 @@
       moneda: "MXN", // 'MXN' | 'USD'
       mostrarConversion: true,
       modelos: [defaultModelo(1)],
-      // Shared by every modelo in this ficha — adjusting one applies to all.
-      escalas: { plano: 100, specs: 100, pago: 100 },
+      // Only "tabla de pago" is shared by every modelo in this ficha —
+      // plano/información size is per-modelo now (see defaultModelo()).
+      escalas: { pago: 100 },
       estiloModeloNombre: defaultTextStyle(),
       estiloModeloPrecio: defaultTextStyle(),
       colorModeloPrecio: "#2A2621",
@@ -485,7 +490,16 @@
         // ficha made before this toggle existed would silently lose its
         // payment schedule the moment it's opened again.
         if (typeof m.mostrarEsquemaPago !== "boolean") m.mostrarEsquemaPago = true;
+        // Plano/información size used to be shared across every modelo in
+        // the ficha (f.escalas, above) — now each modelo keeps its own, so
+        // a ficha with several can size each one independently. Seed it
+        // from the ficha's old shared value so nothing visibly changes
+        // until someone actually moves one modelo's own slider.
+        if (!m.escalas) m.escalas = { plano: f.escalas.plano || 100, specs: f.escalas.specs || 100 };
       });
+      // Now dead — the values above were already copied onto every modelo.
+      delete f.escalas.plano;
+      delete f.escalas.specs;
     });
     parsed.mapas.forEach(function (mapa) {
       (mapa.pines || []).forEach(function (p) {

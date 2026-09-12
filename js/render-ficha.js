@@ -151,10 +151,12 @@
     const priceMainCur = ficha.moneda;
     const priceSub = ficha.moneda === "USD" ? conv.mxn : conv.usd;
     const priceSubCur = ficha.moneda === "USD" ? "MXN" : "USD";
-    const escalas = ficha.escalas || { plano: 100, specs: 100, pago: 100 };
-    // These four styles live on the ficha, not the modelo, on purpose:
-    // adjusting one modelo's text style applies to every modelo in the
-    // same ficha, same as the panel-size sliders.
+    const escalas = ficha.escalas || { pago: 100 };
+    // Plano/información size is per-modelo (see modelo.escalas) so a
+    // ficha with several modelos can size each one's plano/photo on its
+    // own — only "tabla de pago" below stays shared across every modelo
+    // in the ficha, same as the text styles.
+    const modeloEscalas = modelo.escalas || { plano: 100, specs: 100 };
     // escalas.specs/pago used to be applied as CSS `zoom` on the whole
     // block. html2canvas does not measure text correctly under `zoom`
     // (glyphs end up mis-spaced — overlapping or with stray gaps — and on
@@ -162,7 +164,7 @@
     // `justify-content:center` sizing, pulling the plano+specs group off
     // center). Baking the percentage directly into each element's own
     // font-size instead keeps the layout math (and html2canvas) sane.
-    const specsScale = (escalas.specs || 100) / 100 * gs;
+    const specsScale = (modeloEscalas.specs || 100) / 100 * gs;
     const specsBase = 13; // shared base for the icon row + the "M² CONSTRUCCIÓN" line
     const specsStyle = textStyleCss(ficha.estiloModeloSpecs, specsBase * specsScale);
     // Grows at the same rate as the habitaciones/baños number next to it
@@ -230,7 +232,7 @@
       // flex-basis, so the plano size control computes its own width
       // directly.
       const planoBaseWidth = 336; // ~46% of the 736px content width
-      const planoW = Math.round(planoBaseWidth * (escalas.plano / 100));
+      const planoW = Math.round(planoBaseWidth * ((modeloEscalas.plano || 100) / 100));
       const planoWrap = h("div", { class: "f-plano", style: "flex:0 0 auto; width:" + planoW + "px;" }, [img(modelo.plano, "")]);
       row = h("div", { class: "f-model" }, [planoWrap, specs]);
     } else {
