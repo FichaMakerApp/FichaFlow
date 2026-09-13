@@ -297,12 +297,34 @@
     unit = unit || "%";
     const input = h("input", { type: "range", min: String(min), max: String(max), class: "input" });
     input.value = value;
-    const valLabel = h("span", { class: "field-hint", text: value + unit });
+    const numInput = h("input", { type: "number", min: String(min), max: String(max), class: "input range-field-number" });
+    numInput.value = value;
+    function clamp(v) { return Math.max(min, Math.min(max, v)); }
     input.addEventListener("input", function () {
-      valLabel.textContent = input.value + unit;
+      numInput.value = input.value;
       onChange(Number(input.value));
     });
-    return h("div", { class: "field" }, [h("span", { class: "field-label", text: label }), input, valLabel]);
+    numInput.addEventListener("input", function () {
+      // Don't clamp the visible text on every keystroke — typing "150" one
+      // digit at a time (max 160) would otherwise get force-corrected
+      // after just the "1", making it impossible to finish typing. The
+      // slider and the real value still only ever move within range;
+      // only the number field's own text waits until blur to snap back.
+      const v = Number(numInput.value);
+      if (numInput.value === "" || Number.isNaN(v)) return;
+      const c = clamp(v);
+      input.value = c;
+      onChange(c);
+    });
+    numInput.addEventListener("blur", function () {
+      const v = Number(numInput.value);
+      numInput.value = Number.isNaN(v) ? input.value : clamp(v);
+    });
+    const unitLabel = h("span", { class: "field-hint", text: unit });
+    return h("div", { class: "field" }, [
+      h("span", { class: "field-label", text: label }),
+      h("div", { class: "range-field-row" }, [input, numInput, unitLabel]),
+    ]);
   }
 
   // "Modo diseñador" — size + bold/italic/strike controls for a text style
@@ -1264,6 +1286,21 @@
     nombreSection.appendChild(combinedRow("Nombre del modelo", { styleObj: ficha.estiloModeloNombre }));
     nombreSection.appendChild(combinedRow("Habitaciones, baños y m²", { styleObj: ficha.estiloModeloSpecs }));
     controls.appendChild(nombreSection);
+
+    // Plano/información size lives on each modelo (see MODELO_DESIGN_FIELDS
+    // in store.js) so it can differ modelo-to-modelo — unlike the section
+    // above, this edits only the first modelo of THIS ficha (as a live
+    // reference) and, once saved as diseño predeterminado, becomes every
+    // brand-new modelo's starting size from then on. It never touches a
+    // modelo that already exists.
+    const refModelo = ficha.modelos[0];
+    const escalasSection = h("div", { class: "modal-section" }, [
+      h("h3", { text: "Tamaño de plano e información (modelos nuevos)" }),
+      h("p", { class: "field-hint", style: "margin-bottom:8px;", text: "Punto de partida para cada modelo que agregues de aquí en adelante — cada uno se puede seguir ajustando por separado después. Editando aquí el primero de esta ficha como referencia." }),
+    ]);
+    escalasSection.appendChild(rangeField("Plano", refModelo.escalas.plano, 60, 160, function (v) { refModelo.escalas.plano = v; persistSilently(); }));
+    escalasSection.appendChild(rangeField("Información", refModelo.escalas.specs, 60, 160, function (v) { refModelo.escalas.specs = v; persistSilently(); }));
+    controls.appendChild(escalasSection);
 
     const precioSection = h("div", { class: "modal-section" }, [h("h3", { text: "Precio \"Desde\"" })]);
     // No size control on "Desde" — it always matches the botones now (see

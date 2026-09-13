@@ -160,6 +160,9 @@ a{ color:var(--ink); }
   font-family:var(--font-display); font-weight:700;
 }
 .field-hint{ font-size:11px; color:var(--ink-faint); }
+.range-field-row{ display:flex; align-items:center; gap:8px; }
+.range-field-row input[type=range]{ flex:1 1 auto; min-width:0; }
+.range-field-number{ width:56px; flex:0 0 56px; text-align:center; padding:6px 4px; }
 .input, select.input, textarea.input{
   width:100%; padding:9px 11px; border:1px solid var(--stone-line); border-radius:var(--radius-s);
   background:var(--surface-raised); color:var(--ink); font-size:13.5px;

@@ -37,7 +37,7 @@
   }
 
   function defaultModelo(n) {
-    return {
+    const m = {
       id: uid(),
       nombre: n === 1 ? "MODELO 1" : "MODELO " + n,
       superficieM2: "",
@@ -48,7 +48,8 @@
       plano: null, // dataURL
       // Plano/información size is per-modelo (unlike escalas.pago on the
       // ficha, shared on purpose) — with several modelos in one ficha,
-      // each one's plano/photo can need its own crop-to-fit size.
+      // each one's plano/photo can need its own crop-to-fit size. 100/100
+      // here is only the fallback — see MODELO_DESIGN_FIELDS below.
       escalas: { plano: 100, specs: 100 },
       mostrarShowroom: false,
       showroomEnlace: "",
@@ -66,11 +67,18 @@
         tipo: "preventa", // 'preventa' | 'entrega_inmediata'
         textoContado: "PAGO DE CONTADO O CRÉDITO HIPOTECARIO",
         filas: [
-          defaultPagoRow(30, "ENGANCHE", "AL FIRMAR"),
-          defaultPagoRow(70, "SALDO A LA ENTREGA", "CON CRÉDITO HIPOTECARIO"),
+          defaultPagoRow(30, "ENGANCHE", "AL FIRMAR CONTRATO"),
+          defaultPagoRow(70, "CRÉDITO HIPOTECARIO", "A LA ESCRITURA"),
         ],
       },
     };
+    // Plano/información size, same idea as defaultFicha() below applying
+    // the shared design's ficha-level fields — a modo diseñador change
+    // becomes every new modelo's starting point from here on, without
+    // touching any modelo that already exists.
+    const saved = loadDefaultDesign();
+    if (saved) applyDesignFields(m, saved.modelo, MODELO_DESIGN_FIELDS);
+    return m;
   }
 
   function defaultBoton(texto) {
@@ -96,6 +104,10 @@
     "paperColor", "paperImage", "textScale", "fontFamily",
     "estiloHeaderTitulo", "estiloHeaderPara", "estiloHeaderElaboradoPor",
   ];
+  // Plano/información size lives on each modelo (not the ficha) so they
+  // can differ modelo-to-modelo — but a brand-new modelo still needs a
+  // starting point, taken from whatever the shared design last saved here.
+  const MODELO_DESIGN_FIELDS = ["escalas"];
 
   // Shared across every device and every person using the app (Supabase,
   // not localStorage) — that's the whole point: it should start the same
@@ -110,7 +122,7 @@
   }
 
   function saveDefaultDesign(doc, ficha) {
-    const design = { estilosGlobales: {}, ficha: {}, botones: [] };
+    const design = { estilosGlobales: {}, ficha: {}, botones: [], modelo: {} };
     GLOBAL_DESIGN_FIELDS.forEach(function (k) { design.estilosGlobales[k] = doc.estilosGlobales[k]; });
     FICHA_DESIGN_FIELDS.forEach(function (k) { design.ficha[k] = ficha[k]; });
     // Botones vary in count/order per ficha — save by label so a saved
@@ -118,6 +130,11 @@
     (ficha.botones || []).forEach(function (b) {
       design.botones.push({ texto: b.texto, color: b.color, colorTexto: b.colorTexto, estilo: b.estilo });
     });
+    // Taken from this ficha's first modelo, same as the live preview the
+    // designer panel's own plano/información sliders edit — a ficha always
+    // has at least one.
+    const refModelo = (ficha.modelos || [])[0];
+    if (refModelo) MODELO_DESIGN_FIELDS.forEach(function (k) { design.modelo[k] = refModelo[k]; });
     return compressImagesForSync(design).then(function (compressedDesign) {
       return Sync.saveDefaultDesignRemote(compressedDesign);
     }).then(function () {
@@ -187,6 +204,9 @@
       { texto: "UBICACIÓN", color: "#2A2621", colorTexto: "#F1ECE2", estilo: defaultTextStyle(false) },
       { texto: "SHOWROOM", color: "#2A2621", colorTexto: "#F1ECE2", estilo: defaultTextStyle(false) },
     ],
+    modelo: {
+      escalas: { plano: 100, specs: 100 },
+    },
   };
   const BUILTIN_DESIGN_PRESETS = [
     { id: "piedra-caliza", name: "Piedra Caliza", builtin: true, value: PIEDRA_CALIZA_PRESET },
@@ -211,12 +231,14 @@
   }
 
   function saveDesignPreset(name, doc, ficha) {
-    const value = { estilosGlobales: {}, ficha: {}, botones: [] };
+    const value = { estilosGlobales: {}, ficha: {}, botones: [], modelo: {} };
     GLOBAL_DESIGN_FIELDS.forEach(function (k) { value.estilosGlobales[k] = doc.estilosGlobales[k]; });
     FICHA_DESIGN_FIELDS.forEach(function (k) { value.ficha[k] = ficha[k]; });
     (ficha.botones || []).forEach(function (b) {
       value.botones.push({ texto: b.texto, color: b.color, colorTexto: b.colorTexto, estilo: b.estilo });
     });
+    const refModelo = (ficha.modelos || [])[0];
+    if (refModelo) MODELO_DESIGN_FIELDS.forEach(function (k) { value.modelo[k] = refModelo[k]; });
     const preset = { id: uid(), name: name, savedAt: Date.now(), value: value };
     return compressImagesForSync(value).then(function (compressedValue) {
       return Sync.saveDesignPresetRemote({ id: preset.id, name: preset.name, savedAt: preset.savedAt, value: compressedValue });
@@ -255,6 +277,11 @@
       const match = (value.botones || [])[i];
       if (match) { b.color = match.color; b.colorTexto = match.colorTexto; b.estilo = JSON.parse(JSON.stringify(match.estilo)); }
     });
+    // Plano/información size lives on each modelo now — a preset click is
+    // an explicit "apply this whole look right now", so (unlike the silent
+    // default-design seeding below, which only shapes brand-new modelos)
+    // this one does touch every existing modelo in the ficha.
+    (ficha.modelos || []).forEach(function (m) { applyDesignFields(m, value.modelo, MODELO_DESIGN_FIELDS); });
     return true;
   }
 
@@ -683,7 +710,20 @@
         canvas.height = Math.round(h * scale);
         const ctx = canvas.getContext("2d");
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL("image/jpeg", 0.82));
+        // JPEG has no alpha channel — flattening a plano with an erased
+        // (transparent) background onto one turns every see-through pixel
+        // solid BLACK instead of leaving it transparent. Only take the
+        // smaller JPEG when there's genuinely nothing transparent to lose;
+        // a plano (or anything else with real transparency) gets PNG
+        // instead, even though it compresses less.
+        let hasAlpha = false;
+        try {
+          const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+          for (let i = 3; i < data.length; i += 4) {
+            if (data[i] < 255) { hasAlpha = true; break; }
+          }
+        } catch (e) { /* tainted/unsupported canvas — fall back to JPEG below */ }
+        resolve(hasAlpha ? canvas.toDataURL("image/png") : canvas.toDataURL("image/jpeg", 0.82));
       };
       img.onerror = function () { resolve(dataUrl); };
       img.src = dataUrl;

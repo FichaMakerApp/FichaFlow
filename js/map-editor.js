@@ -142,6 +142,14 @@
           document.removeEventListener("touchend", onUp);
           document.removeEventListener("touchcancel", onUp);
           Store.update(function () {}, { silent: true });
+          // {silent:true} above only persists — it doesn't touch "vista en
+          // vivo". Every other editor field (nombre, colores, tamaño)
+          // already calls refreshPreview() itself after its own change;
+          // a drag updates p.x/p.y directly during onMove instead, so
+          // without this the live preview kept showing the pin at its
+          // position from BEFORE the drag until something else (typing in
+          // an unrelated field, say) happened to refresh it.
+          refreshPreview();
         }
         document.addEventListener("mousemove", onMove);
         document.addEventListener("mouseup", onUp);
