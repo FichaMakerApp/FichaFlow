@@ -1549,22 +1549,72 @@
     ]);
   }
 
+  // Guesses casas/departamentos/mixtas from the free-text "Tipo de
+  // propiedad" field already on every ficha — no new field to fill in,
+  // just reads what's already typed there. null means it didn't
+  // recognize either word (e.g. "TERRENO", or the field was left blank);
+  // an unrecognized page still shows in the library, just outside all 3
+  // filters and with the swatch's original neutral color.
+  function classifyTipoPropiedad(raw) {
+    const t = (raw || "").toLowerCase();
+    const hasCasa = t.indexOf("casa") !== -1;
+    const hasDepa = t.indexOf("depa") !== -1 || t.indexOf("dept") !== -1;
+    if (hasCasa && hasDepa) return "mixtas";
+    if (hasCasa) return "casas";
+    if (hasDepa) return "departamentos";
+    return null;
+  }
+  const TIPO_PROPIEDAD_META = {
+    casas: { label: "CASAS", bg: "#B3392C" },
+    departamentos: { label: "DEPARTAMENTOS", bg: "#3A7A52" },
+    mixtas: { label: "CASAS Y DEPARTAMENTOS", bg: "#C99A2E" },
+  };
+
   function renderLibraryPanel(state) {
     if (!state.showLibraryPanel) return null;
     const closeBtn = h("button", { class: "btn btn-sm btn-ghost", type: "button", text: "Cerrar" });
     closeBtn.addEventListener("click", function () { state.showLibraryPanel = false; persistStruct(); });
 
+    // Not persisted on purpose — same as showLibraryPanel and the rest of
+    // this panel's own UI state, it just resets next time you open the
+    // library instead of being remembered across sessions.
+    const activeFilter = state.libraryFilter || null;
+    const filterRow = h("div", { class: "segmented", style: "margin-bottom:12px;" });
+    [["casas", "Casas"], ["departamentos", "Departamentos"], ["mixtas", "Casas y departamentos"]].forEach(function (pair) {
+      const key = pair[0], label = pair[1];
+      const btn = h("button", { type: "button", text: label, class: activeFilter === key ? "active" : "" });
+      btn.addEventListener("click", function () {
+        // Clicking the already-active filter clears it — there's no
+        // separate "Todas" button, this is how you get back to seeing
+        // everything.
+        state.libraryFilter = state.libraryFilter === key ? null : key;
+        persistStruct();
+      });
+      filterRow.appendChild(btn);
+    });
+
+    const visibleEntries = state.library.filter(function (entry) {
+      return !activeFilter || classifyTipoPropiedad(entry.ficha.tipoPropiedad) === activeFilter;
+    });
+
     const grid = h("div", { class: "card-grid" });
     if (!state.library.length) {
       grid.appendChild(h("div", { class: "empty-hint", text: "Todavía no has guardado ninguna página. Usa \"Guardar en biblioteca\" dentro de una ficha." }));
+    } else if (!visibleEntries.length) {
+      grid.appendChild(h("div", { class: "empty-hint", text: "Ninguna página guardada coincide con este filtro." }));
     }
-    state.library.forEach(function (entry, i) {
+    visibleEntries.forEach(function (entry, i) {
       const prog = S.fichaProgress(entry.ficha);
       const mainImg = entry.ficha.galeria && entry.ficha.galeria[0] && entry.ficha.galeria[0].src;
       const displayName = entry.name || entry.ficha.desarrollo || "Sin nombre";
-      const swatch = h("div", { class: "swatch" }, [
-        h("div", { class: "swatch-label", text: entry.ficha.desarrollo || "Sin nombre" }),
-      ]);
+      const tipo = classifyTipoPropiedad(entry.ficha.tipoPropiedad);
+      const tipoMeta = tipo ? TIPO_PROPIEDAD_META[tipo] : null;
+      const swatchLabel = h("div", {
+        class: "swatch-label",
+        text: tipoMeta ? tipoMeta.label : (entry.ficha.tipoPropiedad || "Sin tipo"),
+      });
+      if (tipoMeta) swatchLabel.style.background = tipoMeta.bg;
+      const swatch = h("div", { class: "swatch" }, [swatchLabel]);
       if (mainImg) swatch.style.backgroundImage = "url(" + mainImg + ")";
       const nameEl = h("div", { class: "name", text: displayName });
       const renameBtn = h("button", { class: "btn-icon btn-ghost", type: "button", title: "Renombrar en la biblioteca", text: "✏️" });
@@ -1650,6 +1700,7 @@
       h("div", { style: "display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;" }, [
         h("h2", { text: "Páginas guardadas (compartida)" }), closeBtn,
       ]),
+      filterRow,
       grid,
     ]);
   }
