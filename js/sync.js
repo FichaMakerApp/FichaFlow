@@ -26,43 +26,68 @@
 
   const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+  // Runs `worker` over `items` with at most `limit` in flight at once —
+  // strict one-at-a-time (this used to be) is gentle on Supabase but its
+  // wall-clock time is the sum of every request's latency; a big shared
+  // library made "open the app" itself take well over a minute. A small
+  // bounded pool overlaps that latency (a handful of small requests at
+  // once, never all of them) without going back to the unbounded
+  // Promise.all that caused real timeouts before any of this existed.
+  // One item failing resolves that slot with `undefined` instead of
+  // rejecting the whole run — same "a bad row can't sink the rest"
+  // guarantee the old sequential version had.
+  function runWithLimit(items, limit, worker) {
+    return new Promise(function (resolve) {
+      const results = new Array(items.length);
+      if (!items.length) { resolve(results); return; }
+      let nextIndex = 0;
+      let completedCount = 0;
+      function startNext() {
+        if (nextIndex >= items.length) return;
+        const i = nextIndex++;
+        worker(items[i], i).then(function (r) { results[i] = r; }, function () { results[i] = undefined; }).then(function () {
+          completedCount++;
+          if (completedCount === items.length) resolve(results);
+          else startNext();
+        });
+      }
+      for (let k = 0; k < Math.min(limit, items.length); k++) startNext();
+    });
+  }
+
   // Fetching every row's full `ficha` (images and all) in one query can
   // add up to tens of MB combined once the library has several pages —
   // Supabase's statement timeout then cancels the whole query, and the
   // library looks empty even though nothing was lost. Two-step instead:
   // grab the lightweight id/saved_at list first (always fast), then pull
-  // each full row on its own. One oversized or slow row can no longer
-  // sink every other page — its failure is caught and skipped, and
-  // whatever did load still renders.
+  // each full row with bounded concurrency (see runWithLimit) — a legacy
+  // page's ficha can still be large (pre-extraction inline images), so
+  // this stays request-per-row rather than one combined query for all of
+  // them, just no longer strictly one at a time.
   function loadLibraryRemote() {
     return client.from("library_pages").select("id, saved_at, name").order("saved_at", { ascending: true }).then(function (res) {
       if (res.error) throw res.error;
       const rows = res.data || [];
-      // One at a time, not Promise.all — firing every row's fetch at once
-      // was itself enough concurrent load to make some of them time out
-      // too (the exact failure this is supposed to avoid). Sequential is
-      // slower but each request lands cleanly on its own.
-      let chain = Promise.resolve();
-      const out = [];
-      rows.forEach(function (row) {
-        chain = chain.then(function () {
-          return client.from("library_pages").select("ficha").eq("id", row.id).maybeSingle().then(function (full) {
-            if (full.error || !full.data) return;
-            const shellFicha = full.data.ficha || {};
-            // __assetIds is missing on a page saved before this fix — its
-            // ficha never had its images pulled out to begin with, so
-            // reinsertAssets below (nothing to look up) just hands the
-            // same object back unchanged.
-            const assetIds = shellFicha.__assetIds || [];
-            return loadOrderedRows("library_page_assets", "data", "page_id", row.id, assetIds).then(function (assetMap) {
-              const ficha = reinsertAssets(Object.assign({}, shellFicha), assetMap);
-              delete ficha.__assetIds;
-              out.push({ id: row.id, savedAt: row.saved_at, name: row.name || "", ficha: ficha });
-            });
-          }).catch(function () {});
-        });
-      });
-      return chain.then(function () { return out; });
+      // 3, not higher — each of these workers can itself fire off a few
+      // more requests for that page's own assets (see loadOrderedRows),
+      // so the real number of requests in flight at once is already a
+      // multiple of this.
+      return runWithLimit(rows, 3, function (row) {
+        return client.from("library_pages").select("ficha").eq("id", row.id).maybeSingle().then(function (full) {
+          if (full.error || !full.data) return null;
+          const shellFicha = full.data.ficha || {};
+          // __assetIds is missing on a page saved before this fix — its
+          // ficha never had its images pulled out to begin with, so
+          // reinsertAssets below (nothing to look up) just hands the
+          // same object back unchanged.
+          const assetIds = shellFicha.__assetIds || [];
+          return loadOrderedRows("library_page_assets", "data", "page_id", row.id, assetIds).then(function (assetMap) {
+            const ficha = reinsertAssets(Object.assign({}, shellFicha), assetMap);
+            delete ficha.__assetIds;
+            return { id: row.id, savedAt: row.saved_at, name: row.name || "", ficha: ficha };
+          });
+        }).catch(function () { return null; });
+      }).then(function (results) { return results.filter(Boolean); });
     });
   }
 
@@ -218,6 +243,14 @@
   // whatever the caller zips the result back up against. Shared by the
   // saved-document ficha/mapa/asset read paths and the library-page asset
   // read path below since they're otherwise identical.
+  //
+  // Kept sequential and one-request-per-row on purpose — a single asset
+  // row is a whole compressed image (1-4MB), so both bundling several
+  // into one query AND firing several at once turned out to reintroduce
+  // slow/stuck requests in practice. Real fix for "biblioteca is slow to
+  // open" is one level up, in loadLibraryRemote: the 20+ PAGES is what
+  // was actually serialized before, not any one page's own handful of
+  // photos — this inner loop was never the bottleneck.
   function loadOrderedRows(table, column, fkColumn, ownerId, order) {
     let chain = Promise.resolve();
     const out = {};
