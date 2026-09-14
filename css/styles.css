@@ -313,7 +313,9 @@ label.btn input[type=file]{ position:absolute; inset:0; opacity:0; cursor:pointe
   letter-spacing:.02em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
 }
 .page-card .body{ padding:10px 12px; display:flex; flex-direction:column; gap:6px; }
-.page-card .name{ font-family:var(--font-display); font-weight:700; font-size:12.5px; }
+.page-card .name-row{ display:flex; align-items:center; gap:4px; }
+.page-card .name{ font-family:var(--font-display); font-weight:700; font-size:12.5px; flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.page-card .name-row .btn-icon{ width:20px; height:20px; font-size:10px; flex:0 0 auto; }
 .page-card .meta{ font-size:10px; color:var(--ink-faint); }
 .progress{ height:4px; border-radius:2px; background:var(--stone-line); overflow:hidden; }
 .progress > span{ display:block; height:100%; background:var(--accent); }

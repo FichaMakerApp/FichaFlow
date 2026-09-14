@@ -1561,14 +1561,31 @@
     state.library.forEach(function (entry, i) {
       const prog = S.fichaProgress(entry.ficha);
       const mainImg = entry.ficha.galeria && entry.ficha.galeria[0] && entry.ficha.galeria[0].src;
+      const displayName = entry.name || entry.ficha.desarrollo || "Sin nombre";
       const swatch = h("div", { class: "swatch" }, [
         h("div", { class: "swatch-label", text: entry.ficha.desarrollo || "Sin nombre" }),
       ]);
       if (mainImg) swatch.style.backgroundImage = "url(" + mainImg + ")";
+      const nameEl = h("div", { class: "name", text: displayName });
+      const renameBtn = h("button", { class: "btn-icon btn-ghost", type: "button", title: "Renombrar en la biblioteca", text: "✏️" });
+      renameBtn.addEventListener("click", function () {
+        // A library-only label, kept separate on purpose from
+        // ficha.desarrollo (the title that actually prints on the
+        // document) — renaming here never changes what a client sees.
+        const next = window.prompt("Nombre de esta página en la biblioteca:", displayName);
+        if (next === null) return;
+        const trimmed = next.trim();
+        if (!trimmed || trimmed === displayName) return;
+        S.renameLibraryEntry(entry.id, trimmed).then(function () {
+          persistStruct();
+        }).catch(function () {
+          toast("No se pudo renombrar (revisa tu conexión).", 3200);
+        });
+      });
       const card = h("div", { class: "page-card" }, [
         swatch,
         h("div", { class: "body" }, [
-          h("div", { class: "name", text: entry.ficha.desarrollo || "Sin nombre" }),
+          h("div", { class: "name-row" }, [nameEl, renameBtn]),
           h("div", { class: "meta", text: entry.ficha.modelos.length + " modelo(s) · " + prog.filled + "/" + prog.total + " imágenes" }),
           h("div", { class: "progress" }, [h("span", { style: "width:" + Math.round((prog.filled / Math.max(1, prog.total)) * 100) + "%" })]),
           h("div", { class: "actions" }, (function () {

@@ -776,6 +776,27 @@
     });
   }
 
+  // Renames just the library card's own label — independent from
+  // ficha.desarrollo (the title that actually prints on the document), so
+  // relabeling a page for your own organization never touches what a
+  // client sees on the exported ficha.
+  function renameLibraryEntry(id, name) {
+    const entry = state.library.find(function (e) { return e.id === id; });
+    if (!entry) return Promise.resolve();
+    const prior = entry.name;
+    entry.name = name;
+    notify();
+    return Sync.renameLibraryEntryRemote(id, name).then(function () {
+      lastLibraryError = null;
+    }).catch(function (e) {
+      console.error("No se pudo renombrar la página en la biblioteca compartida.", e);
+      lastLibraryError = e;
+      entry.name = prior;
+      notify();
+      throw e;
+    });
+  }
+
   // CRITICAL invariant: what you can SEE in the library on a given device
   // must never depend on whether syncing to the shared backend succeeded.
   // A page that fails to migrate is still real data sitting in this
@@ -1063,6 +1084,7 @@
     addLibraryEntry: addLibraryEntry,
     getLibraryMigrationFailures: getLibraryMigrationFailures,
     removeLibraryEntry: removeLibraryEntry,
+    renameLibraryEntry: renameLibraryEntry,
     getLastLibraryError: getLastLibraryError,
     onSaveStatusChange: onSaveStatusChange,
     hasPendingWrites: hasPendingWrites,

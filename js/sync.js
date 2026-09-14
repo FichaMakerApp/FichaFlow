@@ -35,7 +35,7 @@
   // sink every other page — its failure is caught and skipped, and
   // whatever did load still renders.
   function loadLibraryRemote() {
-    return client.from("library_pages").select("id, saved_at").order("saved_at", { ascending: true }).then(function (res) {
+    return client.from("library_pages").select("id, saved_at, name").order("saved_at", { ascending: true }).then(function (res) {
       if (res.error) throw res.error;
       const rows = res.data || [];
       // One at a time, not Promise.all — firing every row's fetch at once
@@ -57,7 +57,7 @@
             return loadOrderedRows("library_page_assets", "data", "page_id", row.id, assetIds).then(function (assetMap) {
               const ficha = reinsertAssets(Object.assign({}, shellFicha), assetMap);
               delete ficha.__assetIds;
-              out.push({ id: row.id, savedAt: row.saved_at, ficha: ficha });
+              out.push({ id: row.id, savedAt: row.saved_at, name: row.name || "", ficha: ficha });
             });
           }).catch(function () {});
         });
@@ -75,7 +75,7 @@
     const assets = [];
     const shellFicha = extractAssets(entry.ficha || {}, assets);
     shellFicha.__assetIds = assets.map(function (a) { return a.id; });
-    return client.from("library_pages").insert({ id: entry.id, saved_at: entry.savedAt, ficha: shellFicha }).then(function (res) {
+    return client.from("library_pages").insert({ id: entry.id, saved_at: entry.savedAt, name: entry.name || null, ficha: shellFicha }).then(function (res) {
       if (res.error) throw res.error;
       return writeOrderedRows("library_page_assets", "data", "page_id", entry.id, assets);
     });
@@ -83,6 +83,16 @@
 
   function removeLibraryEntryRemote(id) {
     return client.from("library_pages").delete().eq("id", id).then(function (res) {
+      if (res.error) throw res.error;
+    });
+  }
+
+  // A library page's own display name — independent from ficha.desarrollo
+  // (the title that actually prints on the document), so relabeling a
+  // page for your own organization (e.g. "AUKENA DEPAS" vs "AUKENA CASAS")
+  // never touches what a client sees.
+  function renameLibraryEntryRemote(id, name) {
+    return client.from("library_pages").update({ name: name }).eq("id", id).then(function (res) {
       if (res.error) throw res.error;
     });
   }
@@ -314,6 +324,7 @@
     loadLibraryRemote: loadLibraryRemote,
     addLibraryEntryRemote: addLibraryEntryRemote,
     removeLibraryEntryRemote: removeLibraryEntryRemote,
+    renameLibraryEntryRemote: renameLibraryEntryRemote,
     loadDefaultDesignRemote: loadDefaultDesignRemote,
     saveDefaultDesignRemote: saveDefaultDesignRemote,
     resetDefaultDesignRemote: resetDefaultDesignRemote,
