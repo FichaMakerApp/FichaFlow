@@ -161,21 +161,43 @@ alta que ancha, y si no se le dice lo contrario, invierte ancho/alto en
 silencio. Ya se le indica explícitamente la orientación de cada página, y
 quedó verificado con el `MediaBox` del PDF resultante.
 
-## Pendiente: versión en línea con cuentas de usuario
+## Inicio de sesión (correo y contraseña)
 
-Pediste que la app sea 100% en línea, accesible desde cualquier
-dispositivo, con cuentas de correo y contraseña. **Eso no está hecho** —
-es una pieza aparte y más grande, porque cambia la naturaleza de la app:
+La app pide iniciar sesión antes de abrir el editor. Cada cuenta tiene
+sus **propios** documentos guardados, presets de diseño y diseño
+predeterminado; nadie más los ve. La **biblioteca** sigue siendo, por
+ahora, el espacio compartido de siempre (se separará por cuenta más
+adelante).
 
-- Necesita un servidor/base de datos real (hoy todo vive en el navegador
-  de tu propia computadora).
-- Necesita un proveedor de hosting y, casi seguro, retomar el proyecto
-  como una app con backend — en esta máquina no hay Node instalado, así
-  que no pude ni prototipar esa parte aquí.
-- Implica decisiones tuyas: qué proveedor, si tiene costo, y qué tan
-  urgente es frente al resto.
+Pantallas: *Iniciar sesión*, *Crear cuenta*, *¿Olvidaste tu
+contraseña?* (manda un enlace por correo) y *Nueva contraseña* (a donde
+lleva ese enlace). *Cerrar sesión* está en el menú lateral, en "☰ Más".
 
-Cuando quieras avanzar con eso, es plática aparte sobre dónde alojarla.
+### Puesta en marcha (una sola vez, en este orden)
+
+1. **Supabase → Authentication → Sign In / Providers → Email**: que
+   esté activado. "Confirm email" decide si una cuenta nueva tiene que
+   confirmar su correo antes de entrar (recomendado para cuando la app
+   sea pública).
+2. **Supabase → Authentication → URL Configuration**: en *Site URL*
+   pon `https://fichamakerapp.github.io/FichaFlow/` y agrégala también
+   en *Redirect URLs* (más `http://localhost:8934/` si usas
+   `serve.ps1`). Es a donde llevan los enlaces de confirmación y de
+   recuperar contraseña.
+3. **Crea tu cuenta**: Supabase → Authentication → Users → *Add user*
+   (con tu correo y contraseña, marcando "Auto Confirm User").
+4. **Corre `supabase-login.sql`** en Supabase → SQL Editor, después de
+   cambiar `TU_CORREO@ejemplo.com` por el correo del paso 3. Todo lo
+   que ya existía (documentos, presets, diseño predeterminado) pasa a
+   ser de tu cuenta, y las demás quedan sin acceso a ello.
+5. **Publica este código** (subirlo a `master`) justo después del paso
+   4: entre uno y otro, la versión anterior de la app ya no puede ver
+   los documentos guardados.
+
+Para cuando sea pública: el servicio de correo que trae Supabase solo
+manda unos pocos correos por hora (confirmaciones y recuperación de
+contraseña). Conviene conectar uno propio (Authentication → Emails →
+SMTP Settings, por ejemplo con Resend) antes de abrir el registro.
 
 ## Simplificaciones que siguen en pie
 
@@ -195,6 +217,8 @@ Cuando quieras avanzar con eso, es plática aparte sobre dónde alojarla.
 ```
 index.html           punto de entrada, carga todo en orden
 css/styles.css        tokens de diseño (paleta/tipografía) + estilos
+js/sync.js            conexión con Supabase (documentos, diseños, biblioteca)
+js/auth.js            inicio de sesión: entrar, crear cuenta, recuperar contraseña
 js/store.js           modelo de datos + persistencia en localStorage
 js/currency.js        conversión MXN/USD y cálculo de esquema de pago
 js/render-ficha.js    dibuja la ficha (se usa igual en vivo y para el PDF)
@@ -202,6 +226,7 @@ js/map-editor.js      subir mapa + marcar/arrastrar pines, con estilo por pin
 js/render-app.js      los 2 pasos, formularios, biblioteca, modo diseñador
 js/pdf-export.js      captura cada ficha (html2canvas) y arma el PDF (jsPDF)
 js/main.js            arranque
+supabase-login.sql    cuentas por usuario (se corre una vez, ver "Inicio de sesión")
 serve.ps1             servidor local opcional (no lo necesitas para uso normal)
 Crear acceso directo.bat   crea el ícono de escritorio que abre en el navegador
 crear-acceso-directo.ps1   script real detrás del .bat de arriba

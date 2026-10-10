@@ -798,6 +798,22 @@
     const savedDocsBtn = h("button", { type: "button", class: "btn btn-sm", style: "width:100%;", text: "📁 Documentos guardados (" + state.savedDocuments.length + ")" });
     savedDocsBtn.addEventListener("click", function () { state.showSavedDocsPanel = true; state.railMenuOpen = false; persistStruct(); });
 
+    const signOutBtn = h("button", { type: "button", class: "btn btn-sm btn-danger", style: "width:100%;", text: "Cerrar sesión" });
+    signOutBtn.addEventListener("click", function () {
+      signOutBtn.disabled = true;
+      // Success reloads the page (see js/auth.js) back to the login screen.
+      Auth.signOut().catch(function (e) {
+        console.error("No se pudo cerrar sesión.", e);
+        signOutBtn.disabled = false;
+        toast("⚠ No se pudo cerrar sesión. Revisa tu conexión e intenta de nuevo.", 3200);
+      });
+    });
+    const accountBox = h("div", { class: "rail-account" }, [
+      h("span", { class: "field-label", text: "Sesión iniciada" }),
+      h("span", { class: "rail-account-email", text: Auth.currentEmail() }),
+      signOutBtn,
+    ]);
+
     // Guardar cambios and Modo oscuro stay permanently visible/reachable —
     // everything else (pasos, almacenamiento, modo diseñador, contadores)
     // lives behind a collapsible menu instead of always taking up space.
@@ -825,6 +841,7 @@
           h("div", { class: "row" }, [h("span", { text: "Pines en mapa" }), railMetaRefs.mapas]),
           h("div", { class: "row" }, [h("span", { text: "Tipo de cambio" }), railMetaRefs.tc]),
         ]),
+        accountBox,
       ]));
     }
 

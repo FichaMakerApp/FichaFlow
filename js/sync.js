@@ -4,19 +4,20 @@
    across every device and every person using the app — unlike the
    document itself, which stays local to each browser on purpose.
 
-   No accounts: this uses Supabase's public "anon" key (safe to embed
-   in client code by design — Row Level Security is what actually
-   controls access, not secrecy of this key) with row-level policies
-   that allow full read/write. It's a private, low-stakes tool shared
-   between a couple of people, not a public product, so a login
-   screen would be more friction than protection here.
+   Accounts: every request goes out with the signed-in user's session
+   (email + password, see js/auth.js) on top of Supabase's public
+   "anon" key — safe to embed in client code by design, since Row Level
+   Security is what actually controls access, not secrecy of this key.
+   Saved documents, design presets and the default design are each
+   owned by one user (supabase-login.sql). The library is still the
+   old shared, open-to-everyone space on purpose, for now.
 
    library_pages: one row per saved page — concurrent additions from
    different devices insert separate rows instead of racing to
    overwrite one shared array.
-   default_design: a single shared row (id=1) — last write wins,
-   matching how "Guardar como diseño predeterminado" already behaved
-   before this was shared.
+   default_design: one row per user (keyed by user_id) — last write
+   wins, matching how "Guardar como diseño predeterminado" already
+   behaved before this was shared.
    ========================================================= */
 (function () {
   "use strict";
@@ -24,7 +25,21 @@
   const SUPABASE_URL = "https://nmsojsniefxjcuwcjner.supabase.co";
   const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5tc29qc25pZWZ4amN1d2NqbmVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3MDY2MzcsImV4cCI6MjEwMzI4MjYzN30.C6fPikSBjG56-z4BcvMLzi59zgxA-SbKCgf712nptis";
 
+  // Read BEFORE createClient: the client consumes the password-reset
+  // link's #...type=recovery hash on its own, asynchronously, and could
+  // already have cleared it by the time js/auth.js gets to look.
+  const passwordRecovery = /[#&]type=recovery\b/.test(window.location.hash);
+
   const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // Local read of the stored session — no network round-trip.
+  function currentUserId() {
+    return client.auth.getSession().then(function (res) {
+      const session = res.data && res.data.session;
+      if (!session) throw new Error("No hay sesión iniciada.");
+      return session.user.id;
+    });
+  }
 
   // Fetching every row's full `ficha` (images and all) in one query can
   // add up to tens of MB combined once the library has several pages —
@@ -97,27 +112,34 @@
   }
 
   function loadDefaultDesignRemote() {
-    return client.from("default_design").select("value").eq("id", 1).maybeSingle().then(function (res) {
+    return currentUserId().then(function (userId) {
+      return client.from("default_design").select("value").eq("user_id", userId).maybeSingle();
+    }).then(function (res) {
       if (res.error) throw res.error;
       return res.data ? res.data.value : null;
     });
   }
 
   function saveDefaultDesignRemote(value) {
-    return client.from("default_design").upsert({ id: 1, value: value, updated_at: new Date().toISOString() }).then(function (res) {
+    return currentUserId().then(function (userId) {
+      return client.from("default_design").upsert({ user_id: userId, value: value, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
+    }).then(function (res) {
       if (res.error) throw res.error;
     });
   }
 
   function resetDefaultDesignRemote() {
-    return client.from("default_design").delete().eq("id", 1).then(function (res) {
+    return currentUserId().then(function (userId) {
+      return client.from("default_design").delete().eq("user_id", userId);
+    }).then(function (res) {
       if (res.error) throw res.error;
     });
   }
 
   // design_presets: named, savable "snapshots" of a design (colors, fonts,
-  // sizes) — one row per preset, same shared-across-everyone model as
-  // library_pages, so you can flip between named looks (e.g. "FINAL")
+  // sizes) — one row per preset, owned by whoever saved it (user_id
+  // defaults to auth.uid() in the database, and RLS only returns your
+  // own rows), so you can flip between named looks (e.g. "FINAL")
   // without manually re-adjusting every field.
   function listDesignPresetsRemote() {
     return client.from("design_presets").select("*").order("saved_at", { ascending: true }).then(function (res) {
@@ -326,6 +348,8 @@
   }
 
   window.Sync = {
+    client: client,
+    passwordRecovery: passwordRecovery,
     loadLibraryRemote: loadLibraryRemote,
     addLibraryEntryRemote: addLibraryEntryRemote,
     removeLibraryEntryRemote: removeLibraryEntryRemote,
