@@ -1961,9 +1961,26 @@
   }
 
   function renderModeloBody(container, ficha, modelo) {
+    // Live "= 1,292 sq ft" under the m² box — rewritten in place on input
+    // (not through persistStruct) so the field being typed in keeps focus.
+    const sqftHint = h("span", { class: "field-hint" });
+    function refreshSqftHint() {
+      sqftHint.textContent = modelo.superficieM2 ? "= " + C.fmtSqft(modelo.superficieM2).toLowerCase() : "";
+    }
+    refreshSqftHint();
+    const superficieField = textField("Superficie m²", modelo.superficieM2, function (v) {
+      modelo.superficieM2 = v; refreshSqftHint(); persistSilently();
+    }, { type: "number" });
+    superficieField.appendChild(sqftHint);
     container.appendChild(h("div", { class: "grid-2" }, [
       textField("Nombre del modelo", modelo.nombre, function (v) { modelo.nombre = v; persistSilently(); }, { textarea: true, hint: "Enter para partirlo en otra línea tú mismo." }),
-      textField("Superficie m²", modelo.superficieM2, function (v) { modelo.superficieM2 = v; persistSilently(); }, { type: "number" }),
+      h("div", { style: "display:flex; flex-direction:column; gap:12px;" }, [
+        superficieField,
+        field("Mostrar en la ficha", segmented(
+          [{ value: "m2", label: "M²" }, { value: "sqft", label: "SQ FT" }, { value: "ambas", label: "Ambas" }],
+          ficha.unidadSuperficie || "m2", function (v) { ficha.unidadSuperficie = v; persistStruct(); }
+        ), "Aplica a todos los modelos de esta ficha."),
+      ]),
     ]));
     container.appendChild(h("div", { class: "grid-3" }, [
       textField("Etiqueta de superficie", modelo.etiquetaSuperficie, function (v) { modelo.etiquetaSuperficie = v; persistSilently(); }),

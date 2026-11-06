@@ -1,5 +1,5 @@
 /* =========================================================
-   FichaFlow — currency + payment math
+   FichaFlow — currency + payment math (+ surface units)
    ========================================================= */
 (function () {
   "use strict";
@@ -36,11 +36,30 @@
     return filas.reduce(function (sum, f) { return sum + num(f.pct); }, 0);
   }
 
+  // Surface is always typed in m² (modelo.superficieM2); sq ft is only ever
+  // derived from it, never stored, so the two can't drift apart.
+  const SQFT_PER_M2 = 10.7639;
+
+  function fmtSqft(m2) {
+    return Math.round(num(m2) * SQFT_PER_M2).toLocaleString("en-US") + " SQ FT";
+  }
+
+  // unidad is ficha.unidadSuperficie: 'm2' | 'sqft' | 'ambas'. Anything
+  // else (an older ficha saved before the setting existed) reads as m².
+  // The m² figure stays exactly as typed, same as it always printed.
+  function fmtSurface(m2, unidad) {
+    if (unidad === "sqft") return fmtSqft(m2);
+    if (unidad === "ambas") return m2 + " M² · " + fmtSqft(m2);
+    return m2 + " M²";
+  }
+
   window.Currency = {
     num: num,
     fmtMoney: fmtMoney,
     convertPrice: convertPrice,
     pagoRowAmounts: pagoRowAmounts,
     totalPct: totalPct,
+    fmtSqft: fmtSqft,
+    fmtSurface: fmtSurface,
   };
 })();

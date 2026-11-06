@@ -187,7 +187,7 @@
       ]),
       h("div", { class: "f-surface-line", style: specsStyle }, [
         icon("expand", null, iconSize),
-        h("span", { text: modelo.superficieM2 ? modelo.superficieM2 + " M² " + (modelo.etiquetaSuperficie || "") : (modelo.etiquetaSuperficie || "SUPERFICIE") }),
+        h("span", { text: modelo.superficieM2 ? C.fmtSurface(modelo.superficieM2, ficha.unidadSuperficie) + " " + (modelo.etiquetaSuperficie || "") : (modelo.etiquetaSuperficie || "SUPERFICIE") }),
       ]),
       // "Desde $X" describes a single base price — once the level table is
       // active, per-level prices replace it, so showing both would just be

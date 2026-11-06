@@ -294,6 +294,10 @@
       entrega: "",
       moneda: "MXN", // 'MXN' | 'USD'
       mostrarConversion: true,
+      // How every modelo's superficie prints: 'm2' | 'sqft' | 'ambas'.
+      // Shared by the whole ficha (like moneda) so one modelo can't show
+      // M² while the one next to it shows SQ FT.
+      unidadSuperficie: "m2",
       modelos: [defaultModelo(1)],
       // Only "tabla de pago" is shared by every modelo in this ficha —
       // plano/información size is per-modelo now (see defaultModelo()).
@@ -504,6 +508,8 @@
       if (!f.estiloModeloSpecs) f.estiloModeloSpecs = (firstModelo && firstModelo.estiloSpecs) || defaultTextStyle();
       if (typeof f.avisoLegal !== "string" || !f.avisoLegal.trim()) f.avisoLegal = DEFAULT_LEGAL;
       if (!f.gastosCierre) f.gastosCierre = { activo: false, monto: "" };
+      // Fichas from before the m²/sq ft selector always printed M².
+      if (["m2", "sqft", "ambas"].indexOf(f.unidadSuperficie) === -1) f.unidadSuperficie = "m2";
       (f.botones || []).forEach(function (b) {
         if (!b.color) b.color = "#2A2621";
         if (!b.colorTexto) b.colorTexto = "#F1ECE2";
