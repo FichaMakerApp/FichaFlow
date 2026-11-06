@@ -1961,7 +1961,7 @@
   }
 
   function renderModeloBody(container, ficha, modelo) {
-    // Live "= 1,292 sq ft" under the m² box — rewritten in place on input
+    // Live "= 1,292 ft²" under the m² box — rewritten in place on input
     // (not through persistStruct) so the field being typed in keeps focus.
     const sqftHint = h("span", { class: "field-hint" });
     function refreshSqftHint() {
@@ -1977,7 +1977,7 @@
       h("div", { style: "display:flex; flex-direction:column; gap:12px;" }, [
         superficieField,
         field("Mostrar en la ficha", segmented(
-          [{ value: "m2", label: "M²" }, { value: "sqft", label: "SQ FT" }, { value: "ambas", label: "Ambas" }],
+          [{ value: "m2", label: "M²" }, { value: "sqft", label: "FT²" }, { value: "ambas", label: "Ambas" }],
           ficha.unidadSuperficie || "m2", function (v) { ficha.unidadSuperficie = v; persistStruct(); }
         ), "Aplica a todos los modelos de esta ficha."),
       ]),

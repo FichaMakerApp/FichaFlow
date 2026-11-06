@@ -41,7 +41,7 @@
   const SQFT_PER_M2 = 10.7639;
 
   function fmtSqft(m2) {
-    return Math.round(num(m2) * SQFT_PER_M2).toLocaleString("en-US") + " SQ FT";
+    return Math.round(num(m2) * SQFT_PER_M2).toLocaleString("en-US") + " FT²";
   }
 
   // unidad is ficha.unidadSuperficie: 'm2' | 'sqft' | 'ambas'. Anything

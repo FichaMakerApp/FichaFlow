@@ -1129,19 +1129,19 @@ look de fábrica, no borra ninguna personalización previa. Para ver
 "Piedra Caliza" en un documento que ya tiene un diseño guardado,
 hay que aplicarlo desde el preset o restablecer al diseño de fábrica.
 
-### Ronda siguiente (superficie en m² o sq ft)
+### Ronda siguiente (superficie en m² o ft²)
 
 **La superficie de cada modelo se puede mostrar en pies cuadrados.** Se
 sigue escribiendo en m² ("Superficie m²"), y justo abajo aparece la
-conversión automática mientras escribes ("= 1,292 sq ft", con
-1 m² = 10.7639 sq ft, redondeado a entero). Debajo hay un selector,
+conversión automática mientras escribes ("= 1,292 ft²", con
+1 m² = 10.7639 ft², redondeado a entero). Debajo hay un selector,
 "Mostrar en la ficha", con tres opciones:
 - **M²** — `120 M² CONSTRUCCIÓN` (igual que siempre).
-- **SQ FT** — `1,292 SQ FT CONSTRUCCIÓN`.
-- **Ambas** — `120 M² · 1,292 SQ FT CONSTRUCCIÓN`.
+- **FT²** — `1,292 FT² CONSTRUCCIÓN`.
+- **Ambas** — `120 M² · 1,292 FT² CONSTRUCCIÓN`.
 
 El selector aplica a **toda la ficha** (igual que la moneda), para que
-un modelo no salga en M² y el de al lado en SQ FT. Los pies cuadrados
+un modelo no salga en M² y el de al lado en FT². Los pies cuadrados
 nunca se guardan aparte: siempre se calculan desde los m², así que no
 pueden quedar desfasados. Las fichas y páginas de biblioteca que ya
 existían siguen en M² hasta que elijas otra opción. La etiqueta
