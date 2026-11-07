@@ -117,12 +117,19 @@
   function renderBrandHeader(doc) {
     const eg = doc.estilosGlobales || {};
     const gs = globalScaleOf(doc);
+    // Custom title: first line in the bold style, any further lines (Enter)
+    // in the large light style — same two-tier look as the default
+    // "Análisis de / propiedades". A one-line title is just the bold line.
+    const lines = (doc.tituloEncabezado || "").split("\n").map(function (l) { return l.trim(); }).filter(Boolean);
+    const titleParts = lines.length
+      ? [document.createTextNode(lines[0])].concat(lines.length > 1 ? [h("span", { class: "light", text: lines.slice(1).join(" ") })] : [])
+      : [document.createTextNode("Análisis de"), h("span", { class: "light", text: "propiedades" })];
+    const clientName = (doc.clientName || "").trim();
     return h("div", { class: "f-brand-header" }, [
-      h("div", { class: "f-brand-title", style: textStyleCss(eg.estiloHeaderTitulo, 19 * gs) }, [
-        document.createTextNode("Análisis de"),
-        h("span", { class: "light", text: "propiedades" }),
-      ]),
-      h("div", { class: "f-brand-for", style: textStyleCss(eg.estiloHeaderPara, 12.5 * gs), text: "Para: " + (doc.clientName || "") }),
+      h("div", { class: "f-brand-title", style: textStyleCss(eg.estiloHeaderTitulo, 19 * gs) }, titleParts),
+      // No cliente = a document meant to go out to many people, so the
+      // "Para:" line is dropped instead of printing an empty one.
+      clientName ? h("div", { class: "f-brand-for", style: textStyleCss(eg.estiloHeaderPara, 12.5 * gs), text: "Para: " + clientName }) : null,
       h("div", { class: "f-brand-by", style: textStyleCss(eg.estiloHeaderElaboradoPor, 11 * gs), text: "Elaborado por: " + (doc.advisorName || "") }),
       h("img", { class: "f-brand-logo", src: LOGO_DATA_URI, alt: "Logo" }),
     ]);
@@ -410,7 +417,9 @@
     const gc = ficha.gastosCierre;
     if (gc && gc.activo) {
       body.push(h("div", { class: "f-closing" }, [
-        h("span", { class: "lbl", text: "Gastos aproximados de cierre:" }),
+        // Editable concepto (e.g. "HOA mensual"); blank falls back to the
+        // original wording, which is also what every older ficha has.
+        h("span", { class: "lbl", text: ((gc.concepto || "").trim().replace(/:\s*$/, "") || "Gastos aproximados de cierre") + ":" }),
         h("span", { class: "amt", text: gc.monto ? C.fmtMoney(gc.monto, ficha.moneda) : "$_______" }),
       ]));
       body.push(h("div", { class: "f-closing-note", text: "Esta es una simulación de referencia; el monto real puede variar." }));

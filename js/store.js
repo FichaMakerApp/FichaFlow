@@ -400,6 +400,8 @@
     return {
       clientName: "",
       advisorName: "",
+      // Blank = the usual "Análisis de propiedades" header title.
+      tituloEncabezado: "",
       exchangeRate: 17.5,
       fichas: [],
       mapas: defaultMapasList(),
@@ -433,6 +435,7 @@
       if (!Array.isArray(m.pines)) m.pines = [];
     });
     if (typeof parsed.advisorName !== "string") parsed.advisorName = "";
+    if (typeof parsed.tituloEncabezado !== "string") parsed.tituloEncabezado = "";
     if (typeof parsed.designerMode !== "boolean") parsed.designerMode = false;
     if (!parsed.estilosGlobales) parsed.estilosGlobales = defaultEstilosGlobales();
     const eg = parsed.estilosGlobales;

@@ -1089,7 +1089,7 @@
     globalSection.appendChild(field("Tipografía", fontSelect, "Montserrat se carga en todas sus variantes de grosor e itálica."));
 
     globalSection.appendChild(h("p", { class: "field-label", style: "margin-top:14px; margin-bottom:6px;", text: "Encabezado (solo en la primera página, en el orden en que aparece)" }));
-    globalSection.appendChild(styleControlsRow("\"Análisis de propiedades\"", eg.estiloHeaderTitulo));
+    globalSection.appendChild(styleControlsRow("Título del encabezado", eg.estiloHeaderTitulo));
     globalSection.appendChild(styleControlsRow("\"Para: cliente\"", eg.estiloHeaderPara));
     globalSection.appendChild(styleControlsRow("\"Elaborado por: asesor\"", eg.estiloHeaderElaboradoPor));
     controls.appendChild(globalSection);
@@ -1473,8 +1473,10 @@
     }
 
     nodes.push(
+      textField("Título del encabezado", d.tituloEncabezado || "", function (v) { d.tituloEncabezado = v; persistSilently(); },
+        { textarea: true, placeholder: "ANÁLISIS DE PROPIEDADES", hint: "Déjalo vacío para el título de siempre. Enter lo parte en dos líneas (la segunda sale en grande y delgada), por ejemplo \"TOP PROYECTOS\" / \"CERCA DEL MAR\"." }),
       h("div", { class: "grid-2" }, [
-        textField("Para (cliente)", d.clientName, function (v) { d.clientName = v; persistSilently(); }),
+        textField("Para (cliente)", d.clientName, function (v) { d.clientName = v; persistSilently(); }, { hint: "Déjalo vacío para un envío masivo: la línea \"Para:\" no se imprime." }),
         textField("Elaborado por (asesor)", d.advisorName, function (v) { d.advisorName = v; persistSilently(); }),
       ]),
       h("div", { class: "grid-2" }, [
@@ -2120,6 +2122,8 @@
     container.appendChild(toggleRow("Gastos aproximados de cierre", "Panel opcional debajo del esquema de pago, con una leyenda de que es una simulación.", ficha.gastosCierre.activo,
       function (v) { ficha.gastosCierre.activo = v; persistStruct(); }));
     if (ficha.gastosCierre.activo) {
+      container.appendChild(textField("Concepto", ficha.gastosCierre.concepto || "", function (v) { ficha.gastosCierre.concepto = v; persistSilently(); },
+        { placeholder: "Gastos aproximados de cierre", noUppercase: true, hint: "Cámbialo si es otro concepto, por ejemplo \"HOA mensual\". Vacío = el texto de siempre." }));
       container.appendChild(moneyField("Monto aproximado", ficha.gastosCierre.monto, ficha.moneda, function (v) { ficha.gastosCierre.monto = v; persistSilently(); },
         { hint: "Déjalo vacío para mostrar solo la línea en blanco a llenar a mano." }));
     }
