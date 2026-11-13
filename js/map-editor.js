@@ -1,5 +1,5 @@
 /* =========================================================
-   FichaFlow — map pin editor
+   propentia — map pin editor
    User uploads their own map screenshot (e.g. from Google Earth,
    framed and angled however they like) and places pins by
    clicking on it. Only the name they type is shown — no marker

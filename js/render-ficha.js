@@ -1,5 +1,5 @@
 /* =========================================================
-   FichaFlow — ficha renderer
+   propentia — ficha renderer
    Pure DOM builder used BOTH for the live preview pane and for
    PDF capture, so what you see while editing is what you export.
    Visual language (header photo, logo, tan accent used only as

@@ -1,5 +1,5 @@
 /* =========================================================
-   FichaFlow — shared sync (Supabase)
+   propentia — shared sync (Supabase)
    The library of saved pages and the default design are shared
    across every device and every person using the app — unlike the
    document itself, which stays local to each browser on purpose.
@@ -24,7 +24,20 @@
   const SUPABASE_URL = "https://nmsojsniefxjcuwcjner.supabase.co";
   const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5tc29qc25pZWZ4amN1d2NqbmVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3MDY2MzcsImV4cCI6MjEwMzI4MjYzN30.C6fPikSBjG56-z4BcvMLzi59zgxA-SbKCgf712nptis";
 
+  // Se lee ANTES de createClient: el cliente consume por su cuenta el #...type=recovery
+  // del enlace de "olvidé mi contraseña" y podría borrarlo antes de que auth.js lo vea.
+  const passwordRecovery = /[#&]type=recovery\b/.test(window.location.hash);
+
   const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // Lectura local de la sesión guardada — sin ir a la red.
+  function currentUserId() {
+    return client.auth.getSession().then(function (res) {
+      const session = res.data && res.data.session;
+      if (!session) throw new Error("No hay sesión iniciada.");
+      return session.user.id;
+    });
+  }
 
   // Fetching every row's full `ficha` (images and all) in one query can
   // add up to tens of MB combined once the library has several pages —
@@ -38,7 +51,11 @@
   // slow-but-correct wins until there's a solid, well-tested reason to
   // revisit it.
   function loadLibraryRemote() {
-    return client.from("library_pages").select("id, saved_at, name").order("saved_at", { ascending: true }).then(function (res) {
+    // Si la base todavía no tiene la columna user_id (antes de correr supabase-cuentas.sql), se lee sin ella.
+    return client.from("library_pages").select("id, saved_at, name, user_id").order("saved_at", { ascending: true }).then(function (res) {
+      if (res.error && res.error.code === "42703") return client.from("library_pages").select("id, saved_at, name").order("saved_at", { ascending: true });
+      return res;
+    }).then(function (res) {
       if (res.error) throw res.error;
       const rows = res.data || [];
       let chain = Promise.resolve();
@@ -56,12 +73,49 @@
             return loadOrderedRows("library_page_assets", "data", "page_id", row.id, assetIds).then(function (assetMap) {
               const ficha = reinsertAssets(Object.assign({}, shellFicha), assetMap);
               delete ficha.__assetIds;
-              out.push({ id: row.id, savedAt: row.saved_at, name: row.name || "", ficha: ficha });
+              out.push({ id: row.id, savedAt: row.saved_at, name: row.name || "", ownerId: row.user_id, ficha: ficha });
             });
           }).catch(function () {});
         });
       });
-      return chain.then(function () { return out; });
+      return chain.then(function () { return attachOwnerEmails(out); });
+    });
+  }
+
+  // Las páginas que otro usuario te compartió llevan el correo de su dueño
+  // (la tabla profiles solo deja ver a quien te compartió algo).
+  function attachOwnerEmails(entries) {
+    return currentUserId().then(function (me) {
+      const foreign = {};
+      entries.forEach(function (e) { if (e.ownerId && e.ownerId !== me) foreign[e.ownerId] = true; });
+      const ids = Object.keys(foreign);
+      if (!ids.length) return entries;
+      return client.from("profiles").select("id, email").in("id", ids).then(function (res) {
+        const byId = {};
+        (res.data || []).forEach(function (p) { byId[p.id] = p.email; });
+        entries.forEach(function (e) { if (byId[e.ownerId]) e.ownerEmail = byId[e.ownerId]; });
+        return entries;
+      });
+    }).catch(function () { return entries; });
+  }
+
+  // Compartir una página de la biblioteca con otra cuenta, por correo.
+  // Resultado: "ok" | "not_found" (no hay cuenta con ese correo) | "self".
+  function shareLibraryEntryRemote(pageId, email) {
+    return client.rpc("share_library_page", { p_page: pageId, p_email: email }).then(function (res) {
+      if (res.error) throw res.error;
+      return res.data;
+    });
+  }
+  function listLibrarySharesRemote(pageId) {
+    return client.rpc("list_library_shares", { p_page: pageId }).then(function (res) {
+      if (res.error) throw res.error;
+      return res.data || [];
+    });
+  }
+  function unshareLibraryEntryRemote(pageId, userId) {
+    return client.rpc("unshare_library_page", { p_page: pageId, p_user: userId }).then(function (res) {
+      if (res.error) throw res.error;
     });
   }
 
@@ -97,20 +151,26 @@
   }
 
   function loadDefaultDesignRemote() {
-    return client.from("default_design").select("value").eq("id", 1).maybeSingle().then(function (res) {
+    return currentUserId().then(function (userId) {
+      return client.from("default_design").select("value").eq("user_id", userId).maybeSingle();
+    }).then(function (res) {
       if (res.error) throw res.error;
       return res.data ? res.data.value : null;
     });
   }
 
   function saveDefaultDesignRemote(value) {
-    return client.from("default_design").upsert({ id: 1, value: value, updated_at: new Date().toISOString() }).then(function (res) {
+    return currentUserId().then(function (userId) {
+      return client.from("default_design").upsert({ user_id: userId, value: value, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
+    }).then(function (res) {
       if (res.error) throw res.error;
     });
   }
 
   function resetDefaultDesignRemote() {
-    return client.from("default_design").delete().eq("id", 1).then(function (res) {
+    return currentUserId().then(function (userId) {
+      return client.from("default_design").delete().eq("user_id", userId);
+    }).then(function (res) {
       if (res.error) throw res.error;
     });
   }
@@ -326,6 +386,11 @@
   }
 
   window.Sync = {
+    client: client,
+    passwordRecovery: passwordRecovery,
+    shareLibraryEntryRemote: shareLibraryEntryRemote,
+    listLibrarySharesRemote: listLibrarySharesRemote,
+    unshareLibraryEntryRemote: unshareLibraryEntryRemote,
     loadLibraryRemote: loadLibraryRemote,
     addLibraryEntryRemote: addLibraryEntryRemote,
     removeLibraryEntryRemote: removeLibraryEntryRemote,

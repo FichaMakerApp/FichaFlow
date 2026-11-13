@@ -1,5 +1,5 @@
 /* =========================================================
-   FichaFlow — data model + store
+   propentia — data model + store
    Plain client-side state. No build step, no backend:
    everything persists to localStorage. Use "Exportar respaldo"
    in the review step to save a JSON backup off the browser.
@@ -1000,6 +1000,7 @@
       // in the background, whenever it arrives.
       state.library = mergeLibraryForDisplay(legacyLocal, null);
       state.ready = true;
+      state.libraryReady = false; // true cuando la biblioteca remota terminó de cargar
       if (state.document.fichas.length && !state.activeFichaId) {
         state.activeFichaId = state.document.fichas[0].id;
       }
@@ -1008,12 +1009,13 @@
         return null; // null = couldn't reach it at all, distinct from "reached it and it's empty"
       }).then(function (remoteLibrary) {
         state.library = mergeLibraryForDisplay(legacyLocal, remoteLibrary);
+        state.libraryReady = true;
         notify();
         // Sync anything local-only up to the shared library in the
         // background too — never block or gate boot on this (that's what
         // made every open slow while pages kept re-attempting a broken
         // upload).
-        if (remoteLibrary !== null) migrateLocalOnlyLibraryEntries(legacyLocal, remoteLibrary);
+        if (remoteLibrary !== null && window.Auth && Auth.isSignedIn()) migrateLocalOnlyLibraryEntries(legacyLocal, remoteLibrary);
       });
       // Same "never block boot" treatment as the library — the list itself
       // is light (no documents, just id/name/dates), but there's no reason

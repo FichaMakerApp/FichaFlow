@@ -1,5 +1,5 @@
 /* =========================================================
-   FichaFlow — PDF export
+   propentia — PDF export
    Renders each ficha with the exact same function used for the
    live preview, captures it with html2canvas, and gives every
    page its own height (no dead space, no cut-off content).
@@ -151,7 +151,7 @@
     return processPage(0).then(function () {
       document.body.removeChild(host);
       if (!pdf) throw new Error("No hay fichas para exportar.");
-      const name = (doc.clientName || "fichaflow").trim().replace(/\s+/g, "_") + ".pdf";
+      const name = (doc.clientName || "propentia").trim().replace(/\s+/g, "_") + ".pdf";
       if (navigateCurrentTab) {
         // Verified (with pdf.js, a real independent parser — not just a
         // byte grep) that the generated file itself is correct: valid

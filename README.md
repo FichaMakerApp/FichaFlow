@@ -1,4 +1,6 @@
-# FichaFlow
+# propentia
+
+> Antes llamada FichaFlow. El nombre propentia es provisional hasta terminar la búsqueda formal en el IMPI. Cuentas de usuario, cómo compartir el link y cómo configurar Supabase: ver [CUENTAS-Y-COMPARTIR.md](CUENTAS-Y-COMPARTIR.md). El resto de este archivo es la bitácora de desarrollo, escrita cuando la app se llamaba FichaFlow.
 
 App para armar fichas de venta inmobiliaria (cliente, desarrollo, modelos,
 precios, pagos, mapa) y exportarlas a PDF, con la identidad visual de tu
@@ -22,7 +24,7 @@ No requiere Node, Python ni ninguna instalación. En celular funciona igual
 
 La app también está publicada en:
 
-**https://fichamakerapp.github.io/FichaFlow/**
+**https://propentia-app.github.io/propentia/**
 
 Ábrela en Safari y agrégala a pantalla de inicio (compartir → "Agregar a
 pantalla de inicio") para que se sienta como una app aparte. Cada

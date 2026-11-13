@@ -1,5 +1,5 @@
 /* =========================================================
-   FichaFlow — app shell + wizard
+   propentia — app shell + wizard
    Text/number inputs mutate the live state object directly
    (they're the same object stored in Store.state) and then call
    persistSilently(), which saves + refreshes only the preview
@@ -17,6 +17,28 @@
   const h = FichaRender.h;
   const S = Store;
   const C = Currency;
+
+  // Íconos de línea del manual de marca (sección 10): cuadrícula de 24 × 24,
+  // trazo 2.4, terminaciones planas y un solo color (hereda el del texto).
+  const ICONS = {
+    agregar: '<path d="M12 5v14M5 12h14"/>',
+    biblioteca: '<rect x="3.5" y="5" width="4.5" height="15" rx="1.5"/><rect x="9.75" y="5" width="4.5" height="15" rx="1.5"/><rect x="16" y="5" width="4.5" height="15" rx="1.5"/>',
+    ficha: '<rect x="5" y="3" width="14" height="18" rx="3"/><path d="M9 8h6M9 12h6M9 16h3"/>',
+    editar: '<path d="M4 20l1-4L16.5 4.5l3 3L8 19z"/>',
+    eliminar: '<path d="M5 7h14M9 7V4.5h6V7M7 7l1 13h8l1-13"/>',
+    menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
+    sol: '<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4"/>',
+    luna: '<path d="M20 14.5A8 8 0 019.5 4a8 8 0 1010.5 10.5z"/>',
+    mas: '<path d="M12 5v14M5 12h14"/>',
+    atras: '<path d="M19 12H5M11 6l-6 6 6 6"/>',
+    adelante: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+    bajar: '<path d="M12 4v11M7 11l5 5 5-5M5 20h14"/>',
+    biblioteca: '<path d="M5 4v16M10 4v16M15 5l4 14"/>',
+    cerrar: '<path d="M6 6l12 12M18 6L6 18"/>',
+  };
+  function iconSvg(name) {
+    return '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="butt" stroke-linejoin="round">' + ICONS[name] + "</svg>";
+  }
 
   let previewSlot = null;
   let designerPreviewSlot = null;
@@ -465,7 +487,7 @@
     const slot = h("label", { class: "upload-slot", tabindex: "0" });
     if (modelo.plano) {
       slot.appendChild(h("img", { src: modelo.plano }));
-      const editBtn = h("button", { class: "edit", type: "button", text: "✏️" });
+      const editBtn = h("button", { class: "edit", type: "button", title: "Editar plano", "aria-label": "Editar plano", html: iconSvg("editar") });
       editBtn.addEventListener("click", function (e) { e.preventDefault(); e.stopPropagation(); PlanoEditor.open(modelo.plano, modelo); });
       const rm = h("button", { class: "remove", type: "button", text: "✕" });
       rm.addEventListener("click", function (e) { e.preventDefault(); e.stopPropagation(); modelo.plano = null; persistStruct(); });
@@ -720,6 +742,7 @@
   // RAIL
   // =========================================================
   function openDesignerModal() {
+    if (!Auth.require("Inicia sesión o crea tu cuenta para personalizar tu marca.")) return;
     const state = S.state;
     if (!state.designerUnlocked) {
       const pw = window.prompt("Contraseña del modo diseñador:");
@@ -738,20 +761,23 @@
   }
 
   function renderRail(state) {
-    const steps = [
-      { n: 1, label: "Cliente, fichas y mapa" },
-      { n: 2, label: "Revisión y descarga" },
-    ];
-    const stepper = h("div", { class: "stepper-v" });
-    steps.forEach(function (s) {
-      const cls = state.step === s.n ? "current" : (state.step > s.n ? "done" : "");
-      const btn = h("button", { type: "button", class: "step-btn " + cls }, [
-        h("span", { class: "num", text: state.step > s.n ? "✓" : String(s.n) }),
-        h("span", { text: s.label }),
-      ]);
-      btn.addEventListener("click", function () { state.step = s.n; state.railMenuOpen = false; persistStruct(); });
+    const stepper = h("nav", { class: "stepper-h", "aria-label": "Navegación principal" });
+    const cur = currentView(state);
+    [
+      ["home", "Inicio", "home"], ["projects", "Proyectos", "project"], ["documents", "Documentos", "doc"],
+      ["compare", "Comparativos", "compare"], ["editor", "Editor", "edit"], ["review", "Revisión", "download"],
+    ].forEach(function (s) {
+      const btn = h("button", { type: "button", class: "step-btn" + (cur === s[0] ? " current" : ""), html: mi(s[2]) + '<span class="lbl"></span>' });
+      btn.querySelector(".lbl").textContent = s[1];
+      if (s[0] === "projects") btn.appendChild(h("span", { class: "count", text: String(state.library.length) }));
+      if (cur === s[0]) btn.setAttribute("aria-current", "page");
+      btn.addEventListener("click", function () { goView(s[0]); });
       stepper.appendChild(btn);
     });
+    const brandBtn = h("button", { type: "button", class: "step-btn", html: mi("brand") + '<span class="lbl">Mi marca</span>' });
+    brandBtn.title = "Modo diseñador: colores, tipografías y estilo de la ficha";
+    brandBtn.addEventListener("click", function () { state.railMenuOpen = false; openDesignerModal(); });
+    stepper.appendChild(brandBtn);
 
     railMetaRefs = {
       fichas: h("b", { text: state.document.fichas.length }),
@@ -759,13 +785,14 @@
       tc: h("b", { text: state.document.exchangeRate }),
     };
 
-    const designerBtn = h("button", { type: "button", class: "btn", style: "width:100%;", text: "🎨 Modo diseñador" });
+    const designerBtn = h("button", { type: "button", class: "btn btn-sm", text: "Modo diseñador" });
     designerBtn.addEventListener("click", function () { state.railMenuOpen = false; openDesignerModal(); });
 
-    const themeBtn = h("button", { type: "button", class: "btn btn-sm", style: "width:100%;" });
+    const themeBtn = h("button", { type: "button", class: "btn btn-ghost iconbtn theme-btn" });
     function paintThemeBtn() {
       const dark = getTheme() === "dark";
-      themeBtn.textContent = dark ? "☀ Modo claro" : "🌙 Modo oscuro";
+      themeBtn.innerHTML = iconSvg(dark ? "sol" : "luna");
+      themeBtn.title = themeBtn.ariaLabel = dark ? "Modo claro" : "Modo oscuro";
     }
     paintThemeBtn();
     themeBtn.addEventListener("click", function () {
@@ -773,15 +800,15 @@
       paintThemeBtn();
     });
 
-    const savedBadge = h("div", { class: "saved-badge" }, [h("span", { class: "dot" }), h("span", { class: "txt" })]);
+    const savedBadge = h("div", { class: "saved-badge", role: "status", "aria-live": "polite" }, [h("span", { class: "dot" }), h("span", { class: "txt" })]);
     paintSavedBadge(savedBadge);
 
-    // Everything already autosaves on every change (that's what the badge
-    // above is showing) — this button doesn't save anything the autosave
-    // hasn't already saved. It exists purely so there's an explicit action
-    // to click for peace of mind, with its own immediate confirmation.
-    const saveBtn = h("button", { type: "button", class: "btn btn-sm", style: "width:100%;", text: "💾 Guardar cambios" });
+    // Todo se guarda solo en cada cambio (eso muestra el indicador); este
+    // botón no guarda nada que el autoguardado no haya guardado ya, solo da
+    // una acción explícita con su propia confirmación.
+    const saveBtn = h("button", { type: "button", class: "btn btn-sm", text: "Guardar cambios" });
     saveBtn.addEventListener("click", function () {
+    if (!Auth.require("Inicia sesión para guardar tus cambios.")) return;
       persistSilently().then(function () {
         paintSavedBadge(savedBadge);
         if (S.getLastSaveError()) {
@@ -792,34 +819,60 @@
       });
     });
 
-    const storageBtn = h("button", { type: "button", class: "btn btn-sm", style: "width:100%;", text: "📊 Ver almacenamiento" });
+    const storageBtn = h("button", { type: "button", class: "btn btn-sm", text: "Ver almacenamiento" });
     storageBtn.addEventListener("click", function () { state.storagePanelOpen = true; state.railMenuOpen = false; persistStruct(); });
 
-    const savedDocsBtn = h("button", { type: "button", class: "btn btn-sm", style: "width:100%;", text: "📁 Documentos guardados (" + state.savedDocuments.length + ")" });
+    const savedDocsBtn = h("button", { type: "button", class: "btn btn-sm", text: "Documentos guardados (" + state.savedDocuments.length + ")" });
     savedDocsBtn.addEventListener("click", function () { state.showSavedDocsPanel = true; state.railMenuOpen = false; persistStruct(); });
 
-    // Guardar cambios and Modo oscuro stay permanently visible/reachable —
-    // everything else (pasos, almacenamiento, modo diseñador, contadores)
-    // lives behind a collapsible menu instead of always taking up space.
-    const menuBtn = h("button", { type: "button", class: "btn btn-sm rail-menu-toggle", text: state.railMenuOpen ? "✕ Cerrar" : "☰ Más" });
+    const menuBtn = h("button", { type: "button", class: "btn btn-sm rail-menu-toggle", html: iconSvg(state.railMenuOpen ? "cerrar" : "menu") + "<span>" + (state.railMenuOpen ? "Cerrar" : "Más") + "</span>" });
+    menuBtn.setAttribute("aria-expanded", state.railMenuOpen ? "true" : "false");
     menuBtn.addEventListener("click", function () { state.railMenuOpen = !state.railMenuOpen; persistStruct(); });
 
-    const railFixed = h("div", { class: "rail-fixed" }, [savedBadge, saveBtn, themeBtn, menuBtn]);
+    const signOutBtn = h("button", { type: "button", class: "btn btn-sm btn-danger", text: "Cerrar sesión" });
+    signOutBtn.addEventListener("click", function () {
+      signOutBtn.disabled = true;
+      // Al cerrar sesión la página se recarga (ver js/auth.js) y vuelve al inicio de sesión.
+      Auth.signOut().catch(function (e) {
+        console.error("No se pudo cerrar sesión.", e);
+        signOutBtn.disabled = false;
+        toast("⚠ No se pudo cerrar sesión. Revisa tu conexión e intenta de nuevo.", 3200);
+      });
+    });
+    const accountBox = Auth.isSignedIn()
+      ? h("div", { class: "rail-account" }, [
+          h("span", { class: "field-label", text: "Sesión iniciada" }),
+          h("span", { class: "rail-account-email", text: Auth.currentEmail() }),
+          signOutBtn,
+        ])
+      : h("div", { class: "rail-account" }, [
+          h("span", { class: "field-label", text: "Estás de invitado" }),
+          h("span", { class: "rail-account-email", text: "Puedes recorrer toda la app. Para crear o guardar necesitas tu cuenta." }),
+          mBtn("btn-primary btn-sm", null, "Crear cuenta", function () { Auth.openSignUp(); }),
+          mBtn("btn-sm", null, "Iniciar sesión", function () { Auth.openSignIn(); }),
+        ]);
 
-    const railChildren = [
-      h("div", { class: "brand" }, [
-        h("div", { class: "name", text: "FichaFlow" }),
-        h("div", { class: "sub", text: "Análisis de propiedades" }),
+    const loginBtn = mBtn("btn-primary btn-sm", null, "Entrar", function () { Auth.openSignIn(); });
+    loginBtn.classList.add("login-btn");
+
+    const children = [
+      h("button", { type: "button", class: "brand", "aria-label": "propentia, inicio", }, [
+        h("div", { class: "brand-lockup", role: "img", "aria-label": "propentia" }, [
+          h("span", { class: "brand-nt" }, [h("i")]),
+          h("span", { class: "brand-word" }),
+        ]),
       ]),
-      railFixed,
+      stepper,
+      h("div", { class: "topnav-end" }, Auth.isSignedIn() ? [savedBadge, themeBtn, menuBtn] : [themeBtn, loginBtn, menuBtn]),
     ];
 
     if (state.railMenuOpen) {
-      railChildren.push(h("div", { class: "rail-dropdown" }, [
-        stepper,
+      children.push(h("div", { class: "rail-dropdown" }, [
+        saveBtn,
         storageBtn,
         savedDocsBtn,
         designerBtn,
+        accountBox,
         h("div", { class: "rail-meta" }, [
           h("div", { class: "row" }, [h("span", { text: "Fichas" }), railMetaRefs.fichas]),
           h("div", { class: "row" }, [h("span", { text: "Pines en mapa" }), railMetaRefs.mapas]),
@@ -828,7 +881,64 @@
       ]));
     }
 
-    return h("div", { class: "rail" }, railChildren);
+    const hdr = h("header", { class: "topnav" }, children);
+    hdr.querySelector(".brand").addEventListener("click", function () { goView("home"); });
+    return hdr;
+  }
+
+  // ---------- dock inferior contextual ----------
+  // Las acciones de cada paso viven aquí, siempre a la mano. Con páginas de
+  // la biblioteca marcadas, el dock cambia a las acciones de la selección.
+  const LIB_MAX_PICK = 3;
+  let libPick = [];
+  function dockBtn(cls, icon, label, fn) {
+    const b = h("button", { type: "button", class: "btn " + cls, html: (icon ? iconSvg(icon) : "") + '<span class="lbl"></span>' });
+    b.querySelector(".lbl").textContent = label;
+    b.setAttribute("aria-label", label);
+    b.title = label;
+    b.addEventListener("click", fn);
+    return b;
+  }
+  function renderDock(state) {
+    const kids = [];
+    libPick = libPick.filter(function (id) { return state.library.some(function (e) { return e.id === id; }); });
+    const picked = libPick.slice();
+    const cur = currentView(state);
+    if (picked.length && (cur === "projects" || (cur === "editor" && state.showLibraryPanel))) {
+      const clear = h("button", { type: "button", class: "dock-x", title: "Quitar la selección", "aria-label": "Quitar la selección", text: "×" });
+      clear.addEventListener("click", function () { libPick = []; render(); });
+      kids.push(h("span", { class: "dock-chip" }, [h("b", { text: String(picked.length) }), document.createTextNode(picked.length === 1 ? " seleccionada" : " seleccionadas"), clear]));
+      kids.push(dockBtn("btn-primary", "mas", picked.length === 1 ? "Agregar al documento" : "Agregar " + picked.length + " al documento", function () {
+        const entries = picked.map(function (id) { return state.library.find(function (e) { return e.id === id; }); }).filter(Boolean);
+        libPick = [];
+        addLibraryEntriesToDoc(state, entries);
+      }));
+      if (picked.length >= 2) kids.push(dockBtn("", "biblioteca", "Comparar " + picked.length, function () { goView("compare"); }));
+      kids.push(h("span", { class: "dock-hint", text: picked.length < LIB_MAX_PICK ? "Puedes marcar hasta " + LIB_MAX_PICK : "Máximo: " + LIB_MAX_PICK }));
+    } else if (cur === "home") {
+      kids.push(dockBtn("btn-primary", "mas", "Nueva ficha", newProject));
+      kids.push(dockBtn("", "biblioteca", "Proyectos", function () { goView("projects"); }));
+      kids.push(dockBtn("", "adelante", "Comparar", function () { goView("compare"); }));
+    } else if (cur === "projects") {
+      kids.push(dockBtn("btn-primary", "mas", "Agregar proyecto", newProject));
+      kids.push(dockBtn("", "adelante", "Comparar", function () { goView("compare"); }));
+    } else if (cur === "documents") {
+      kids.push(dockBtn("btn-primary", "mas", "Nueva ficha", newProject));
+      kids.push(dockBtn("", "biblioteca", "Proyectos", function () { goView("projects"); }));
+    } else if (cur === "compare") {
+      const pb = dockBtn("btn-primary", "bajar", "Imprimir comparativo", printCompare);
+      pb.disabled = picked.length < 2;
+      kids.push(pb);
+      kids.push(dockBtn("", "biblioteca", "Proyectos", function () { goView("projects"); }));
+    } else if (cur === "review") {
+      kids.push(dockBtn("", "atras", "Regresar", function () { state.step = 1; persistStruct(); }));
+      kids.push(dockBtn("btn-primary js-pdf", "bajar", "Descargar PDF", function () { exportPdfNow(); }));
+    } else {
+      kids.push(dockBtn("", "mas", "Nueva ficha", addBlankFicha));
+      kids.push(dockBtn("", "biblioteca", "Biblioteca (" + state.library.length + ")", function () { state.showLibraryPanel = !state.showLibraryPanel; persistStruct(); }));
+      kids.push(dockBtn("btn-primary", "adelante", "Revisar todo", function () { state.step = 2; persistStruct(); }));
+    }
+    return h("nav", { class: "dock", "aria-label": "Acciones del paso" }, kids);
   }
 
   // Nothing else shows that the app auto-saves to the browser on every
@@ -907,7 +1017,7 @@
   }
   function renderQuotaBlockInto(container, quota) {
     container.innerHTML = "";
-    const refreshBtn = h("button", { type: "button", class: "btn-icon btn-ghost", style: "width:auto; padding:0 8px; font-size:11px;", text: "🔄 Recalcular" });
+    const refreshBtn = h("button", { type: "button", class: "btn-icon btn-ghost", style: "width:auto; padding:0 8px; font-size:11px;", text: "Recalcular" });
     refreshBtn.addEventListener("click", function () {
       container.innerHTML = "";
       container.appendChild(h("p", { class: "field-hint", text: "Calculando espacio disponible…" }));
@@ -1110,7 +1220,7 @@
       if (f.id === state.designerFichaId) opt.selected = true;
       fichaSelect.appendChild(opt);
     });
-    const mapOpt = h("option", { value: "MAP", text: "⌖ Mapa final" });
+    const mapOpt = h("option", { value: "MAP", text: "Mapa final" });
     if (state.designerFichaId === "MAP") mapOpt.selected = true;
     fichaSelect.appendChild(mapOpt);
     fichaSelect.addEventListener("change", function () { state.designerFichaId = fichaSelect.value; persistStruct(); });
@@ -1148,7 +1258,7 @@
     const presetsList = h("div", { style: "display:flex; flex-direction:column; gap:6px; margin-bottom:12px;" });
     S.getDesignPresets().forEach(function (preset) {
       const row = h("div", { style: "display:flex; gap:8px; align-items:center;" });
-      const applyBtn = h("button", { type: "button", class: "btn btn-sm", style: "flex:1;", text: "🪄 " + preset.name });
+      const applyBtn = h("button", { type: "button", class: "btn btn-sm", style: "flex:1;", text: preset.name });
       applyBtn.addEventListener("click", function () {
         S.applyDesignPreset(preset.id, doc, ficha);
         toast("Preset \"" + preset.name + "\" aplicado a esta ficha y al documento.", 3200);
@@ -1156,7 +1266,7 @@
       });
       row.appendChild(applyBtn);
       if (!preset.builtin) {
-        const delBtn = h("button", { type: "button", class: "btn btn-sm btn-danger", text: "🗑" });
+        const delBtn = h("button", { type: "button", class: "btn btn-sm btn-danger", title: "Eliminar preset", "aria-label": "Eliminar preset", html: iconSvg("eliminar") });
         delBtn.addEventListener("click", function () {
           if (!window.confirm("¿Eliminar el preset \"" + preset.name + "\"? Esto no afecta ninguna ficha que ya lo tenga aplicado, solo lo quita de la lista.")) return;
           delBtn.disabled = true;
@@ -1175,13 +1285,13 @@
     presetsSection.appendChild(presetsList);
 
     const presetNameInput = h("input", { type: "text", class: "input", placeholder: "Nombre del preset (por ejemplo, FINAL)" });
-    const savePresetBtn = h("button", { type: "button", class: "btn btn-sm", text: "💾 Guardar configuración actual como preset" });
+    const savePresetBtn = h("button", { type: "button", class: "btn btn-sm", text: "Guardar configuración actual como preset" });
     savePresetBtn.addEventListener("click", function () {
       const name = presetNameInput.value.trim();
       if (!name) { toast("Ponle un nombre al preset primero."); return; }
       savePresetBtn.disabled = true;
       S.saveDesignPreset(name, doc, ficha).then(function () {
-        toast("Preset \"" + name + "\" guardado — se comparte con todos tus dispositivos y con quien más use la app.", 3600);
+        toast("Preset \"" + name + "\" guardado — se sincroniza con todos tus dispositivos y con quien más use la app.", 3600);
         presetNameInput.value = "";
         savePresetBtn.disabled = false;
         persistStruct();
@@ -1196,14 +1306,14 @@
     controls.appendChild(presetsSection);
 
     const savedDesign = S.loadDefaultDesign();
-    const saveDesignBtn = h("button", { type: "button", class: "btn btn-sm", text: "💾 Guardar como diseño predeterminado" });
+    const saveDesignBtn = h("button", { type: "button", class: "btn btn-sm", text: "Guardar como diseño predeterminado" });
     saveDesignBtn.addEventListener("click", function () {
       saveDesignBtn.disabled = true;
       S.saveDefaultDesign(doc, ficha).then(function () {
         toast("Diseño guardado — se comparte con todos los dispositivos y personas que usan la app.", 3200);
         persistStruct();
       }).catch(function () {
-        toast("No se pudo guardar el diseño compartido (revisa tu conexión).", 3200);
+        toast("No se pudo guardar el diseño guardado (revisa tu conexión).", 3200);
         saveDesignBtn.disabled = false;
       });
     });
@@ -1213,10 +1323,10 @@
       resetDesignBtn.addEventListener("click", function () {
         resetDesignBtn.disabled = true;
         S.resetDefaultDesign().then(function () {
-          toast("Se quitó el diseño predeterminado compartido — las próximas fichas nuevas vuelven a arrancar en blanco.", 3200);
+          toast("Se quitó el diseño predeterminado — las próximas fichas nuevas vuelven a arrancar en blanco.", 3200);
           persistStruct();
         }).catch(function () {
-          toast("No se pudo restablecer el diseño compartido (revisa tu conexión).", 3200);
+          toast("No se pudo restablecer el diseño guardado (revisa tu conexión).", 3200);
           resetDesignBtn.disabled = false;
         });
       });
@@ -1224,7 +1334,7 @@
     }
     fichaSection.appendChild(designBtnsRow);
     fichaSection.appendChild(h("p", { class: "field-hint", style: "margin-bottom:14px;", text: savedDesign
-      ? "Ya hay un diseño predeterminado guardado, compartido entre todos tus dispositivos y con quien más uses esta app. Guardar de nuevo lo reemplaza con los ajustes de esta ficha."
+      ? "Ya hay un diseño predeterminado guardado, sincronizado entre tus dispositivos. Guardar de nuevo lo reemplaza con los ajustes de esta ficha."
       : "Toma los estilos, colores y escalas de ESTA ficha (más los del documento completo, arriba) y los deja como punto de partida para toda ficha o documento nuevo — en cualquier dispositivo, para cualquiera que use esta app." }));
 
     controls.appendChild(fichaSection);
@@ -1451,7 +1561,7 @@
     // already works for single fichas.
     const activeSaved = state.activeSavedDocumentId && state.savedDocuments.find(function (sd) { return sd.id === state.activeSavedDocumentId; });
     if (activeSaved) {
-      const saveBackBtn = h("button", { type: "button", class: "btn btn-sm btn-primary", text: "💾 Guardar cambios en \"" + activeSaved.name + "\"" });
+      const saveBackBtn = h("button", { type: "button", class: "btn btn-sm btn-primary", text: "Guardar cambios en \"" + activeSaved.name + "\"" });
       saveBackBtn.addEventListener("click", function () {
         saveBackBtn.disabled = true;
         S.updateActiveSavedDocument().then(function () {
@@ -1467,7 +1577,7 @@
         });
       });
       nodes.push(h("div", { style: "display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:-6px 0 14px; padding:10px 14px; background:var(--accent-wash); border-radius:8px;" }, [
-        h("span", { style: "font-size:12.5px; flex:1 1 260px;", text: "📁 Editando el documento guardado de \"" + activeSaved.name + "\" — los cambios de aquí no se suben solos." }),
+        h("span", { style: "font-size:12.5px; flex:1 1 260px;", text: "Editando el documento guardado de \"" + activeSaved.name + "\" — los cambios de aquí no se suben solos." }),
         saveBackBtn,
       ]));
     }
@@ -1490,6 +1600,7 @@
   }
 
   function addBlankFicha() {
+    if (!Auth.require("Inicia sesión o crea tu cuenta para empezar una ficha.")) return;
     const f = S.defaultFicha();
     S.state.document.fichas.push(f);
     S.state.activeFichaId = f.id;
@@ -1502,6 +1613,7 @@
   // confirms first. The library of saved pages is untouched; it isn't part
   // of the document.
   function startNewDocument() {
+    if (!Auth.require("Inicia sesión o crea tu cuenta para crear un documento.")) return;
     if (!confirm(
       "¿Empezar un documento nuevo?\n\n" +
       "El documento que tienes abierto se reemplaza por uno vacío. Si no lo " +
@@ -1513,6 +1625,7 @@
     S.state.activeModeloIndex = 0;
     S.state.activeSavedDocumentId = null;
     S.state.step = 1;
+    S.state.view = "editor";
     persistStruct();
     toast("Documento nuevo listo.");
   }
@@ -1520,21 +1633,21 @@
   function renderQuickStart(state) {
     const grid = h("div", { class: "quickstart-grid" });
     const newCard = h("button", { type: "button", class: "qs-card" }, [
-      h("div", { class: "ic", text: "＋" }),
+      h("div", { class: "ic", html: iconSvg("agregar") }),
       h("div", { class: "t", text: "Nueva ficha en blanco" }),
       h("div", { class: "d", text: "Empieza a capturar un desarrollo desde cero." }),
     ]);
     newCard.addEventListener("click", addBlankFicha);
 
     const libCard = h("button", { type: "button", class: "qs-card" }, [
-      h("div", { class: "ic", text: "▤" }),
+      h("div", { class: "ic", html: iconSvg("biblioteca") }),
       h("div", { class: "t", text: "Cargar desde la biblioteca" }),
       h("div", { class: "d", text: state.library.length + " página(s) guardadas para reutilizar." }),
     ]);
     libCard.addEventListener("click", function () { state.showLibraryPanel = true; persistStruct(); });
 
     const savedDocsCard = h("button", { type: "button", class: "qs-card" }, [
-      h("div", { class: "ic", text: "📁" }),
+      h("div", { class: "ic", html: iconSvg("ficha") }),
       h("div", { class: "t", text: "Abrir un documento guardado" }),
       h("div", { class: "d", text: state.savedDocuments.length + " documento(s) guardados por cliente." }),
     ]);
@@ -1571,6 +1684,41 @@
     departamentos: { label: "DEPARTAMENTOS", bg: "#3A7A52" },
     mixtas: { label: "CASAS Y DEPARTAMENTOS", bg: "#C99A2E" },
   };
+
+  // Copia una o varias páginas de la biblioteca al documento abierto.
+  function addLibraryEntriesToDoc(state, entries) {
+    if (!Auth.require("Inicia sesión o crea tu cuenta para usar tus proyectos.")) return;
+    entries.forEach(function (entry) {
+      const clone = JSON.parse(JSON.stringify(entry.ficha));
+      clone.id = S.uid();
+      // Una página de la biblioteca es una foto fija de cuando se guardó: trae
+      // el diseño de entonces, no el actual del modo diseñador. Copiarle el
+      // diseño del documento (los mismos campos que "aplicar a todas"
+      // replica) hace que coincida desde el primer momento.
+      const styleSource = state.document.fichas[0];
+      if (styleSource) {
+        FICHA_STYLE_FIELDS.forEach(function (key) {
+          clone[key] = JSON.parse(JSON.stringify(styleSource[key]));
+        });
+        (clone.botones || []).forEach(function (b, i) {
+          const match = (styleSource.botones || [])[i];
+          if (match) {
+            b.color = match.color;
+            b.colorTexto = match.colorTexto;
+            b.estilo = JSON.parse(JSON.stringify(match.estilo));
+          }
+        });
+      }
+      state.document.fichas.push(clone);
+      // Una entrada de la biblioteca nunca pasa por normalizeDocument() sola
+      // y puede no tener campos agregados después; normalizar completa lo que falte.
+      S.normalizeDocument(state.document);
+      state.activeFichaId = clone.id;
+      state.activeModeloIndex = 0;
+    });
+    persistStruct();
+    if (entries.length > 1) toast(entries.length + " páginas agregadas al documento.");
+  }
 
   function renderLibraryPanel(state) {
     if (!state.showLibraryPanel) return null;
@@ -1619,7 +1767,7 @@
       const swatch = h("div", { class: "swatch" }, [swatchLabel]);
       if (mainImg) swatch.style.backgroundImage = "url(" + mainImg + ")";
       const nameEl = h("div", { class: "name", text: displayName });
-      const renameBtn = h("button", { class: "btn-icon btn-ghost", type: "button", title: "Renombrar en la biblioteca", text: "✏️" });
+      const renameBtn = h("button", { class: "btn-icon btn-ghost", type: "button", title: "Renombrar en la biblioteca", "aria-label": "Renombrar en la biblioteca", html: iconSvg("editar") });
       renameBtn.addEventListener("click", function () {
         // A library-only label, kept separate on purpose from
         // ficha.desarrollo (the title that actually prints on the
@@ -1634,64 +1782,38 @@
           toast("No se pudo renombrar (revisa tu conexión).", 3200);
         });
       });
-      const card = h("div", { class: "page-card" }, [
+      const isPicked = libPick.indexOf(entry.id) >= 0;
+      const pickCb = h("input", { type: "checkbox", class: "select-box", "aria-label": "Seleccionar " + displayName });
+      pickCb.checked = isPicked;
+      pickCb.addEventListener("change", function () {
+        if (pickCb.checked) {
+          if (libPick.length >= LIB_MAX_PICK) { pickCb.checked = false; toast("Puedes seleccionar hasta " + LIB_MAX_PICK + " páginas."); return; }
+          libPick.push(entry.id);
+        } else {
+          libPick = libPick.filter(function (id) { return id !== entry.id; });
+        }
+        render();
+      });
+      swatch.appendChild(pickCb);
+      const card = h("div", { class: "page-card" + (isPicked ? " picked" : "") }, [
         swatch,
         h("div", { class: "body" }, [
-          h("div", { class: "name-row" }, [nameEl, renameBtn]),
-          h("div", { class: "meta", text: entry.ficha.modelos.length + " modelo(s) · " + prog.filled + "/" + prog.total + " imágenes" }),
+          h("div", { class: "name-row" }, isMine(entry) ? [nameEl, renameBtn] : [nameEl]),
+          h("div", { class: "meta", text: entry.ficha.modelos.length + " modelo(s) · " + prog.filled + "/" + prog.total + " imágenes" + (isMine(entry) ? "" : " · compartida por " + (entry.ownerEmail || "otra cuenta")) }),
           h("div", { class: "progress" }, [h("span", { style: "width:" + Math.round((prog.filled / Math.max(1, prog.total)) * 100) + "%" })]),
           h("div", { class: "actions" }, (function () {
             const addBtn = h("button", { class: "btn btn-sm btn-primary", type: "button", text: "Agregar" });
-            addBtn.addEventListener("click", function () {
-              const clone = JSON.parse(JSON.stringify(entry.ficha));
-              clone.id = S.uid();
-              // A library page is a frozen snapshot from whenever it was
-              // saved — it carries whatever design was current back then,
-              // not whatever "modo diseñador" has set up since. Without
-              // this, a page pulled in from the library keeps looking like
-              // an old design no matter how many times you tweak and
-              // "aplicar a todas" the current one, since that only mirrors
-              // across fichas already open when you make the edit. Copying
-              // the current document's own look onto it right away — same
-              // fields "aplicar a todas" already mirrors — means it matches
-              // from the moment it's added instead of needing a fresh edit
-              // afterward to catch up.
-              const styleSource = state.document.fichas[0];
-              if (styleSource) {
-                FICHA_STYLE_FIELDS.forEach(function (key) {
-                  clone[key] = JSON.parse(JSON.stringify(styleSource[key]));
-                });
-                (clone.botones || []).forEach(function (b, i) {
-                  const match = (styleSource.botones || [])[i];
-                  if (match) {
-                    b.color = match.color;
-                    b.colorTexto = match.colorTexto;
-                    b.estilo = JSON.parse(JSON.stringify(match.estilo));
-                  }
-                });
-              }
-              state.document.fichas.push(clone);
-              // A library entry is a raw saved snapshot that never passes
-              // through normalizeDocument() on its own — it can predate any
-              // ficha field added since it was saved. Re-normalizing the
-              // whole document after pushing it backfills whatever the
-              // clone is missing, the same safety net a freshly loaded
-              // document already gets.
-              S.normalizeDocument(state.document);
-              state.activeFichaId = clone.id;
-              state.activeModeloIndex = 0;
-              persistStruct();
-            });
+            addBtn.addEventListener("click", function () { addLibraryEntriesToDoc(state, [entry]); });
             const delBtn = h("button", { class: "btn btn-sm btn-danger", type: "button", text: "Eliminar" });
             delBtn.addEventListener("click", function () {
               // addLibraryEntry/removeLibraryEntry already notify() on their
               // own (optimistic update, then confirmed or rolled back) — no
               // need to also persistStruct() here.
               S.removeLibraryEntry(entry.id).catch(function () {
-                toast("No se pudo eliminar de la biblioteca compartida (revisa tu conexión).", 3200);
+                toast("No se pudo eliminar de tu biblioteca (revisa tu conexión).", 3200);
               });
             });
-            return [addBtn, delBtn];
+            return isMine(entry) ? [addBtn, delBtn] : [addBtn];
           })()),
         ]),
       ]);
@@ -1700,7 +1822,7 @@
 
     return h("div", { class: "panel library-panel" }, [
       h("div", { style: "display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;" }, [
-        h("h2", { text: "Páginas guardadas (compartida)" }), closeBtn,
+        h("h2", { text: "Tus páginas guardadas" }), closeBtn,
       ]),
       filterRow,
       grid,
@@ -1719,19 +1841,19 @@
 
     const nameInput = h("input", { type: "text", class: "input", placeholder: "Ej. Alonso, Familia Torres…" });
     nameInput.value = state.document.clientName || "";
-    const saveAsBtn = h("button", { class: "btn btn-sm btn-primary", type: "button", text: "💾 Guardar" });
+    const saveAsBtn = h("button", { class: "btn btn-sm btn-primary", type: "button", text: "Guardar" });
     saveAsBtn.addEventListener("click", function () {
       const name = nameInput.value.trim();
       if (!name) { nameInput.focus(); toast("Ponle un nombre al documento primero — por ejemplo, el cliente.", 3200); return; }
       saveAsBtn.disabled = true;
       saveAsBtn.textContent = "Guardando…";
       S.saveDocumentAs(name).then(function () {
-        saveAsBtn.textContent = "💾 Guardar";
-        toast("Documento guardado como \"" + name + "\" — se comparte con todos tus dispositivos.", 3200);
+        saveAsBtn.textContent = "Guardar";
+        toast("Documento guardado como \"" + name + "\" — se sincroniza con todos tus dispositivos.", 3200);
         persistStruct();
       }).catch(function (e) {
         saveAsBtn.disabled = false;
-        saveAsBtn.textContent = "💾 Guardar";
+        saveAsBtn.textContent = "Guardar";
         // A toast is easy to miss for something this important (it's the
         // one case where "nothing visibly happened" and real work might
         // have been lost) — same reasoning as the local-storage failure
@@ -1791,7 +1913,7 @@
 
     return h("div", { class: "panel library-panel" }, [
       h("div", { style: "display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;" }, [
-        h("h2", { text: "Documentos guardados (compartida)" }), closeBtn,
+        h("h2", { text: "Tus documentos guardados" }), closeBtn,
       ]),
       h("p", { class: "desc", text: "El documento completo — todas sus fichas — bajo el nombre de un cliente. Ábrelo cuando quieras y sigue agregando propiedades sin empezar de cero." }),
       saveAsRow,
@@ -1828,20 +1950,16 @@
     const addTab = h("button", { type: "button", class: "tab-btn", text: "＋ Nueva ficha" });
     addTab.addEventListener("click", addBlankFicha);
 
-    const mapTab = h("button", { type: "button", class: "tab-btn" + (state.activeFichaId === "MAP" ? " active" : ""), text: "⌖ Mapa final" });
+    const mapTab = h("button", { type: "button", class: "tab-btn" + (state.activeFichaId === "MAP" ? " active" : ""), text: "Mapa final" });
     mapTab.addEventListener("click", function () { state.activeFichaId = "MAP"; persistStruct(); });
 
-    const newDocTab = h("button", { type: "button", class: "btn btn-standout", text: "🗎 Nuevo documento" });
+    const newDocTab = h("button", { type: "button", class: "btn btn-standout", text: "Nuevo documento" });
     newDocTab.addEventListener("click", startNewDocument);
 
     const smallTabs = h("div", { class: "tabs", style: "margin-bottom:0;" }, [addTab, mapTab, newDocTab]);
 
-    const libToggle = h("button", { type: "button", class: "btn btn-sm btn-ghost", text: "▤ Biblioteca (" + state.library.length + ")" });
-    libToggle.addEventListener("click", function () { state.showLibraryPanel = !state.showLibraryPanel; persistStruct(); });
-
     return h("div", { style: "margin-bottom:14px;" }, [
       h("div", { style: "display:flex; align-items:flex-end; gap:12px; flex-wrap:wrap;" }, [strip, smallTabs]),
-      h("div", { style: "display:flex; justify-content:flex-end; margin-top:6px;" }, [libToggle]),
     ]);
   }
 
@@ -1860,9 +1978,9 @@
     saveLibBtn.addEventListener("click", function () {
       const clone = JSON.parse(JSON.stringify(ficha));
       S.addLibraryEntry({ id: S.uid(), savedAt: Date.now(), ficha: clone }).then(function () {
-        toast("Página guardada en la biblioteca compartida.");
+        toast("Página guardada en tu biblioteca.");
       }).catch(function () {
-        toast("No se pudo guardar en la biblioteca compartida (revisa tu conexión).", 3200);
+        toast("No se pudo guardar en tu biblioteca (revisa tu conexión).", 3200);
       });
     });
     const delBtn = h("button", { class: "btn btn-sm btn-danger", type: "button", text: "Eliminar ficha" });
@@ -2187,9 +2305,9 @@
 
     const addFichaBtn = h("button", { class: "btn btn-sm", type: "button", text: "＋ Agregar otra ficha" });
     addFichaBtn.addEventListener("click", addBlankFicha);
-    const goMapBtn = h("button", { class: "btn btn-sm", type: "button", text: "⌖ Ir al mapa final" });
+    const goMapBtn = h("button", { class: "btn btn-sm", type: "button", text: "Ir al mapa final" });
     goMapBtn.addEventListener("click", function () { S.state.activeFichaId = "MAP"; persistStruct(); });
-    const newDocBtn = h("button", { class: "btn btn-standout", type: "button", text: "🗎 Nuevo documento" });
+    const newDocBtn = h("button", { class: "btn btn-standout", type: "button", text: "Nuevo documento" });
     newDocBtn.addEventListener("click", startNewDocument);
     panel.appendChild(h("div", { class: "quick-add-row" }, [addFichaBtn, goMapBtn, newDocBtn]));
 
@@ -2262,11 +2380,6 @@
     // todo", it's always visible without scrolling anything.
     wrap.appendChild(renderTabsBar(state));
 
-    const nav = h("div", { style: "display:flex; justify-content:flex-end; margin-top:18px;" });
-    const fwd = h("button", { class: "btn btn-primary", type: "button", text: "Revisar todo →" });
-    fwd.addEventListener("click", function () { state.step = 2; persistStruct(); });
-    nav.appendChild(fwd);
-    wrap.appendChild(nav);
 
     refreshPreview();
     return wrap;
@@ -2275,6 +2388,7 @@
   // =========================================================
   // STEP 2 — review + export
   // =========================================================
+  let exportPdfNow = function () {};
   function renderStepReview(state) {
     const d = state.document;
     const list = h("div", { class: "review-list" });
@@ -2318,9 +2432,18 @@
       ]),
     ]);
 
-    const pdfBtn = h("button", { class: "btn btn-primary", type: "button", text: "⭳ Descargar PDF" });
-    pdfBtn.addEventListener("click", function () {
-      pdfBtn.disabled = true; pdfBtn.textContent = "Generando…";
+    exportPdfNow = function () {
+    if (!Auth.require("Inicia sesión o crea tu cuenta para descargar tu PDF.")) return;
+      const pdfBtns = Array.prototype.slice.call(document.querySelectorAll(".js-pdf"));
+      if (pdfBtns.some(function (b) { return b.disabled; })) return;
+      function setPdf(busy) {
+        pdfBtns.forEach(function (b) {
+          b.disabled = busy;
+          const l = b.querySelector(".lbl");
+          if (l) l.textContent = busy ? "Generando…" : "Descargar PDF";
+        });
+      }
+      setPdf(true);
       // On iOS, PdfExport hands the file to the native share sheet instead
       // of forcing a download or navigating away — see the comment in
       // pdf-export.js for why (iOS's "Quick Look" preview, which a plain
@@ -2330,15 +2453,16 @@
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
       PdfExport.exportPdf(d, isIOS).then(function (n) {
         toast(isIOS ? "PDF listo · " + n + " página(s). Elige dónde abrirlo o a quién enviárselo." : "PDF descargado · " + n + " página(s).");
-        pdfBtn.disabled = false; pdfBtn.textContent = "⭳ Descargar PDF";
+        setPdf(false);
       }).catch(function (err) {
         console.error(err);
         toast("No se pudo generar el PDF. Revisa la consola.");
-        pdfBtn.disabled = false; pdfBtn.textContent = "⭳ Descargar PDF";
+        setPdf(false);
       });
-    });
+    };
 
     const backupBtn = h("button", { class: "btn", type: "button", text: "Exportar respaldo (JSON)" });
+    backupBtn.setAttribute("data-free", "1"); // exportar una copia no crea nada: queda libre para invitados
     backupBtn.addEventListener("click", exportBackup);
     const importLabel = h("label", { class: "btn", text: "Importar respaldo" });
     const importInput = h("input", { type: "file", accept: "application/json", style: "display:none;" });
@@ -2348,10 +2472,7 @@
     });
     importLabel.appendChild(importInput);
 
-    const back = h("button", { class: "btn", type: "button", text: "← Regresar" });
-    back.addEventListener("click", function () { state.step = 1; persistStruct(); });
-
-    const newDocBtn = h("button", { class: "btn btn-standout", type: "button", text: "🗎 Nuevo documento" });
+    const newDocBtn = h("button", { class: "btn btn-standout", type: "button", text: "Nuevo documento" });
     newDocBtn.addEventListener("click", startNewDocument);
 
     return h("div", {}, [
@@ -2363,20 +2484,20 @@
       h("div", { class: "export-bar" }, [
         h("div", {}, [
           h("div", { class: "t", text: "Todo listo para exportar" }),
-          h("div", { class: "d", text: "El PDF usa exactamente lo que ves en la vista previa, página por página." }),
+          h("div", { class: "d", text: "El PDF usa exactamente lo que ves en la vista previa, página por página. Descárgalo desde la barra de abajo." }),
         ]),
-        h("div", { style: "display:flex; gap:8px; flex-wrap:wrap; align-items:center;" }, [backupBtn, importLabel, pdfBtn, newDocBtn]),
+        h("div", { style: "display:flex; gap:8px; flex-wrap:wrap; align-items:center;" }, [backupBtn, importLabel, newDocBtn]),
       ]),
-      h("div", { style: "margin-top:18px;" }, [back]),
     ]);
   }
 
   function exportBackup() {
+    if (S.state.libraryReady === false && !confirm("La biblioteca todavía se está cargando: si descargas ahora, el respaldo saldría SIN ella.\n\nEspera a que el número junto a «Proyectos» deje de cambiar. ¿Descargar de todos modos?")) return;
     const payload = { document: S.state.document, library: S.state.library, exportedAt: new Date().toISOString() };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    const name = (S.state.document.clientName || "fichaflow").trim().replace(/\s+/g, "_");
+    const name = (S.state.document.clientName || "propentia").trim().replace(/\s+/g, "_");
     a.href = url; a.download = name + "_respaldo.json";
     document.body.appendChild(a); a.click(); a.remove();
     URL.revokeObjectURL(url);
@@ -2396,7 +2517,7 @@
         toast("Respaldo importado correctamente.");
       } catch (err) {
         console.error(err);
-        toast("Ese archivo no se pudo leer como respaldo de FichaFlow.");
+        toast("Ese archivo no se pudo leer como respaldo de propentia.");
       }
     };
     reader.readAsText(file);
@@ -2450,6 +2571,422 @@
     toast("⚠ " + failed.length + " página(s) de la biblioteca no se pudieron compartir todavía (siguen visibles aquí, solo no en tus otros dispositivos): " + names + ". Se reintenta solo más tarde.", 6000);
   }
 
+  // =========================================================
+  // VISTAS (Inicio, Proyectos, Documentos, Comparativos) — el mismo
+  // espacio de trabajo de la maqueta, alimentado con datos reales:
+  // "proyectos" = páginas guardadas en la biblioteca, "documentos" =
+  // documentos guardados con nombre. El editor y la revisión siguen
+  // siendo los pasos 1 y 2 de siempre.
+  // =========================================================
+  const MICON = {
+    home: "M3 10L12 3l9 7v10H3z M9 20v-7h6v7",
+    project: "M3 7h7l2 2h9v11H3z M3 7V4h7l2 3",
+    doc: "M6 3h9l4 4v14H6z M14 3v5h5 M9 12h7 M9 16h5",
+    compare: "M3 4h7v16H3z M14 4h7v16h-7z M6 9h1 M17 9h1 M6 14h1 M17 14h1",
+    brand: "M12 3l9 5-9 5-9-5z M3 12l9 5 9-5 M3 16l9 5 9-5",
+    plus: "M12 5v14 M5 12h14",
+    arrow: "M5 12h14 M14 7l5 5-5 5",
+    search: "M16 16l5 5 M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0",
+    shield: "M12 3l8 3v6c0 5-8 9-8 9s-8-4-8-9V6z M8 12l3 3 5-6",
+    pin: "M19 10c0 5-7 11-7 11S5 15 5 10a7 7 0 1 1 14 0 M15 10a3 3 0 1 1-6 0 3 3 0 0 1 6 0",
+    bed: "M3 18V8 M3 14h18v6 M3 10h6v4 M9 9h9a3 3 0 0 1 3 3v2",
+    area: "M4 4h16v16H4z M4 9h4 M4 14h4 M9 4v4 M14 4v4",
+    back: "M19 12H5 M10 7l-5 5 5 5",
+    trash: "M4 7h16 M9 7V3h6v4 M6 7l1 14h10l1-14",
+    download: "M12 3v13 M7 11l5 5 5-5 M4 17v4h16v-4",
+    save: "M4 3h14l3 3v15H3V3z M7 3v6h9V3 M7 21v-8h10v8",
+    edit: "M4 20l1-4L16.5 4.5l3 3L8 19z",
+    share: "M4 12v7a1 1 0 001 1h14a1 1 0 001-1v-7 M16 6l-4-4-4 4 M12 2v13",
+    check: "M5 12l4 4L19 6",
+  };
+  function mi(n) { return '<svg class="mico" aria-hidden="true" viewBox="0 0 24 24"><path d="' + (MICON[n] || MICON.doc) + '"/></svg>'; }
+  function esc(v) { return String(v == null ? "" : v).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+
+  function currentView(state) {
+    const v = state.view || "home";
+    if (v === "editor" || v === "review") return state.step === 2 ? "review" : "editor";
+    return v;
+  }
+  function goView(v) {
+    const state = S.state;
+    state.view = v;
+    if (v === "editor") state.step = 1;
+    if (v === "review") state.step = 2;
+    state.railMenuOpen = false;
+    persistStruct();
+    window.scrollTo(0, 0);
+  }
+
+  const MONEY_FMT = {};
+  function money(n, cur) {
+    cur = cur === "USD" ? "USD" : "MXN";
+    if (!MONEY_FMT[cur]) MONEY_FMT[cur] = new Intl.NumberFormat("es-MX", { style: "currency", currency: cur, currencyDisplay: "narrowSymbol", maximumFractionDigits: 0 });
+    return MONEY_FMT[cur].format(Number(n) || 0) + " " + cur;
+  }
+  function numOf(v) { const n = parseFloat(String(v == null ? "" : v).replace(/[^0-9.\-]/g, "")); return isNaN(n) ? 0 : n; }
+  // Datos de una ficha tal como se capturaron (primer modelo). Nada se inventa:
+  // lo que no esté capturado se muestra como "—".
+  function infoOf(entry) {
+    const f = entry.ficha || entry;
+    const m = (f.modelos && f.modelos[0]) || {};
+    const photo = (f.galeria || []).find(function (g) { return g && g.src; });
+    const pago = m.pagos && m.pagos.filas && m.pagos.filas[0];
+    return {
+      id: entry.id, name: entry.name || f.desarrollo || "Proyecto sin nombre", city: f.ciudad || "", tipo: f.tipoPropiedad || "",
+      price: numOf(m.precioBase), cur: f.moneda === "USD" ? "USD" : "MXN", area: numOf(m.superficieM2),
+      beds: m.habitaciones, baths: m.banos, models: (f.modelos || []).length, delivery: f.entrega || "",
+      deposit: pago && numOf(pago.pct) ? numOf(pago.pct) + "% " + (pago.concepto || "").toLowerCase() : "",
+      photo: photo ? photo.src : "", modelName: m.nombre || "",
+    };
+  }
+
+  function pageHeading(title, sub, actions) {
+    const head = h("div", { class: "page-heading" }, [
+      h("div", {}, [h("h1", { text: title }), h("p", { text: sub })]),
+    ]);
+    if (actions && actions.length) head.appendChild(h("div", { class: "heading-actions" }, actions));
+    return head;
+  }
+  function mBtn(cls, icon, label, fn, iconAfter) {
+    const b = h("button", { type: "button", class: "btn " + cls, html: (icon && !iconAfter ? mi(icon) : "") + '<span class="lbl"></span>' + (icon && iconAfter ? mi(icon) : "") });
+    b.querySelector(".lbl").textContent = label;
+    b.addEventListener("click", fn);
+    return b;
+  }
+  function textBtn(icon, label, fn) {
+    const b = h("button", { type: "button", class: "textbtn", html: '<span class="lbl"></span>' + (icon ? mi(icon) : "") });
+    b.querySelector(".lbl").textContent = label;
+    b.addEventListener("click", fn);
+    return b;
+  }
+  function emptyState(icon, title, text, btn) {
+    return h("div", { class: "empty" }, [h("div", { html: mi(icon) }), h("h3", { text: title }), h("p", { text: text }), btn]);
+  }
+
+  function newProject() { if (!Auth.require("Inicia sesión o crea tu cuenta para agregar un proyecto.")) return; addBlankFicha(); S.state.view = "editor"; S.state.step = 1; persistStruct(); window.scrollTo(0, 0); }
+  function useEntries(entries) {
+    if (!Auth.require("Inicia sesión o crea tu cuenta para usar tus proyectos.")) return;
+    S.state.view = "editor"; S.state.step = 1;
+    addLibraryEntriesToDoc(S.state, entries);
+    toast(entries.length === 1 ? "Proyecto agregado al documento." : entries.length + " proyectos agregados al documento.");
+    window.scrollTo(0, 0);
+  }
+  function removeEntry(entry) {
+    if (!Auth.require("Inicia sesión para administrar tu biblioteca.")) return;
+    if (!confirm("¿Eliminar \"" + (entry.name || (entry.ficha && entry.ficha.desarrollo) || "esta página") + "\" de tu biblioteca? Se borra para todos tus dispositivos y no se puede deshacer.")) return;
+    S.removeLibraryEntry(entry.id).catch(function () { toast("No se pudo eliminar de tu biblioteca (revisa tu conexión).", 3200); });
+  }
+
+  // Una página es mía si no trae dueño (guardada en este navegador) o si el dueño soy yo.
+  function isMine(entry) { return !entry.ownerId || entry.ownerId === Auth.currentId(); }
+
+  function openShareDialog(entry) {
+    if (!Auth.require("Inicia sesión para compartir tus proyectos.")) return;
+    const name = entry.name || (entry.ficha && entry.ficha.desarrollo) || "esta página";
+    const overlay = h("div", { class: "modal-overlay" });
+    const emailEl = h("input", { class: "input", type: "email", placeholder: "correo@ejemplo.com", autocomplete: "off", "aria-label": "Correo de la persona" });
+    const msg = h("p", { class: "auth-msg", role: "status", "aria-live": "polite" });
+    const list = h("div", { class: "share-list" });
+    function close() { overlay.remove(); }
+    function paintList() {
+      list.innerHTML = "";
+      Sync.listLibrarySharesRemote(entry.id).then(function (rows) {
+        if (!rows.length) { list.appendChild(h("p", { class: "field-hint", text: "Todavía no la compartes con nadie." })); return; }
+        rows.forEach(function (r) {
+          const del = h("button", { type: "button", class: "textbtn", text: "Quitar" });
+          del.addEventListener("click", function () {
+            del.disabled = true;
+            Sync.unshareLibraryEntryRemote(entry.id, r.user_id).then(paintList).catch(function () { del.disabled = false; msg.className = "auth-msg error"; msg.textContent = "No se pudo quitar (revisa tu conexión)."; });
+          });
+          list.appendChild(h("div", { class: "share-row" }, [h("span", { text: r.email }), del]));
+        });
+      }).catch(function () { list.appendChild(h("p", { class: "field-hint", text: "No se pudo cargar con quién la compartes." })); });
+    }
+    const send = mBtn("btn-primary", "share", "Compartir", function () {
+      const email = emailEl.value.trim();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { msg.className = "auth-msg error"; msg.textContent = "Escribe un correo válido."; return; }
+      send.disabled = true;
+      Sync.shareLibraryEntryRemote(entry.id, email).then(function (res) {
+        send.disabled = false;
+        if (res === "not_found") { msg.className = "auth-msg error"; msg.textContent = "Esa persona todavía no tiene cuenta en propentia. Pídele que cree la suya y vuelve a intentarlo."; return; }
+        if (res === "self") { msg.className = "auth-msg error"; msg.textContent = "Esa es tu propia cuenta."; return; }
+        msg.className = "auth-msg ok"; msg.textContent = "Listo: " + email + " ya puede ver y usar esta página."; emailEl.value = ""; paintList();
+      }).catch(function () { send.disabled = false; msg.className = "auth-msg error"; msg.textContent = "No se pudo compartir (revisa tu conexión)."; });
+    });
+    const closeBtn = h("button", { type: "button", class: "btn btn-sm btn-ghost", text: "✕ Cerrar" });
+    closeBtn.addEventListener("click", close);
+    overlay.addEventListener("click", function (e) { if (e.target === overlay) close(); });
+    overlay.appendChild(h("div", { class: "modal-box share-box", role: "dialog", "aria-label": "Compartir " + name }, [
+      h("div", { class: "modal-head" }, [h("h2", { text: "Compartir \"" + name + "\"" }), closeBtn]),
+      h("p", { class: "modal-sub", text: "La otra persona verá esta página en su biblioteca y podrá usarla en sus documentos. No puede editarla ni borrarla." }),
+      h("label", { class: "field" }, [h("span", { class: "field-label", text: "Correo de su cuenta" }), emailEl]),
+      msg,
+      h("div", { class: "share-actions" }, [send]),
+      h("h3", { class: "share-title", text: "La compartes con" }),
+      list,
+    ]));
+    document.body.appendChild(overlay);
+    emailEl.focus();
+    paintList();
+  }
+
+  function projectCard(entry) {
+    const p = infoOf(entry);
+    const picked = libPick.indexOf(entry.id) >= 0;
+    const card = h("article", { class: "project-card" + (picked ? " picked" : "") });
+    card.innerHTML =
+      '<div class="project-photo"><span class="photo-label"></span></div>' +
+      '<div class="project-body"><div class="project-title"><h3></h3></div>' +
+      '<div class="project-loc">' + mi("pin") + '<span class="loc"></span></div>' +
+      '<div class="facts"><span>' + mi("bed") + '<b class="beds"></b></span><span>' + mi("area") + '<b class="area"></b></span><span class="nm"></span></div>' +
+      '<div class="project-bottom"><div><small>DESDE</small><br><strong class="price"></strong></div></div></div>';
+    card.querySelector(".photo-label").textContent = (p.tipo || "Sin tipo").toUpperCase();
+    if (p.photo) { const img = document.createElement("img"); img.alt = "Fotografía de " + p.name; img.loading = "lazy"; img.src = p.photo; card.querySelector(".project-photo").insertBefore(img, card.querySelector(".photo-label")); }
+    card.querySelector("h3").textContent = p.name;
+    card.querySelector(".loc").textContent = p.city || "Ubicación por definir";
+    card.querySelector(".beds").textContent = (p.beds || "—") + " rec.";
+    card.querySelector(".area").textContent = (p.area ? p.area : "—") + " m²";
+    card.querySelector(".nm").textContent = p.models + " modelo" + (p.models === 1 ? "" : "s");
+    card.querySelector(".price").textContent = p.price ? money(p.price, p.cur) : "Por definir";
+    if (isMine(entry)) {
+      const share = h("button", { type: "button", class: "textbtn", title: "Compartir con otra cuenta", "aria-label": "Compartir " + p.name, html: mi("share") });
+      share.addEventListener("click", function () { openShareDialog(entry); });
+      const del = h("button", { type: "button", class: "textbtn", title: "Eliminar de la biblioteca", "aria-label": "Eliminar " + p.name + " de la biblioteca", html: mi("trash") });
+      del.addEventListener("click", function () { removeEntry(entry); });
+      card.querySelector(".project-title").appendChild(share);
+      card.querySelector(".project-title").appendChild(del);
+    } else {
+      card.querySelector(".project-loc").insertAdjacentHTML("afterend", '<div class="shared-by"></div>');
+      card.querySelector(".shared-by").textContent = "Compartida por " + (entry.ownerEmail || "otra cuenta");
+    }
+    const add = mBtn("secondary small", null, "Agregar", function () { useEntries([entry]); });
+    card.querySelector(".project-bottom").appendChild(add);
+    const cb = h("input", { type: "checkbox", class: "select-box", "aria-label": "Seleccionar " + p.name });
+    cb.checked = picked;
+    cb.addEventListener("change", function () {
+      if (cb.checked) {
+        if (libPick.length >= LIB_MAX_PICK) { cb.checked = false; toast("Puedes seleccionar hasta " + LIB_MAX_PICK + " proyectos."); return; }
+        libPick.push(entry.id);
+      } else libPick = libPick.filter(function (id) { return id !== entry.id; });
+      render();
+    });
+    card.querySelector(".project-photo").appendChild(cb);
+    return card;
+  }
+
+  function viewHome(state) {
+    const root = h("div", {});
+    root.appendChild(pageHeading("Tu espacio de trabajo", "Prepara la información. Dale forma. Compártela.", [mBtn("btn-primary", "plus", "Crear documento", function () { goView("editor"); })]));
+    const first = state.library.map(infoOf).find(function (p) { return p.photo; });
+    const hero = h("section", { class: "hero" });
+    hero.innerHTML =
+      '<div class="hero-content"><div class="eyebrow">DE TU PROYECTO AL DOCUMENTO</div><h2>Todo lo que necesitas<br>para presentar una propiedad.</h2>' +
+      '<p>Reúne fotos, modelos y precios. Crea una ficha o compara opciones con la identidad de tu marca.</p></div>' +
+      '<div class="hero-image"><span class="hero-number">BIBLIOTECA DE PROYECTOS</span><div class="image-caption"><div><strong>Un proyecto, distintas presentaciones.</strong>Reutiliza la información que ya capturaste.</div>' + mi("project") + "</div></div>";
+    { const img = document.createElement("img"); img.alt = first ? "Portada de " + first.name : "Ilustración genérica de un desarrollo residencial"; img.src = first ? first.photo : "assets/propentia/hero-propiedad.svg"; hero.querySelector(".hero-image").insertBefore(img, hero.querySelector(".hero-number")); }
+    hero.querySelector(".hero-content").appendChild(mBtn("btn-primary", "arrow", "Agregar proyecto", newProject, true));
+    root.appendChild(hero);
+
+    root.appendChild(h("div", { class: "section-head" }, [h("h2", { text: "¿Qué quieres preparar?" }), h("span", { class: "muted", text: "Elige un punto de partida" })]));
+    const grid = h("div", { class: "actions-grid" });
+    [
+      ["Ficha de proyecto", "Captura un proyecto nuevo y revisa su ficha en vivo.", "doc", newProject],
+      ["Reutilizar un proyecto", "Parte de una página que ya guardaste en la biblioteca.", "project", function () { goView("projects"); }],
+      ["Cuadro comparativo", "Revisa lado a lado dos o tres proyectos de tu biblioteca.", "compare", function () { goView("compare"); }],
+    ].forEach(function (a) {
+      const c = h("button", { type: "button", class: "action-card", html: '<span class="action-icon">' + mi(a[2]) + '</span><div><h3></h3><p></p></div>' });
+      c.querySelector("h3").textContent = a[0]; c.querySelector("p").textContent = a[1];
+      c.addEventListener("click", a[3]);
+      grid.appendChild(c);
+    });
+    root.appendChild(grid);
+
+    root.appendChild(h("div", { class: "section-head" }, [h("h2", { text: "Proyectos de tu biblioteca" }), textBtn("arrow", "Ver todos", function () { goView("projects"); })]));
+    const cards = h("div", { class: "cards" });
+    if (state.library.length) state.library.slice(0, 3).forEach(function (e) { cards.appendChild(projectCard(e)); });
+    else cards.appendChild(emptyState("project", "Tu biblioteca empieza aquí", "Guarda una ficha en la biblioteca desde el editor y aparecerá aquí.", mBtn("btn-primary", null, "Agregar proyecto", newProject)));
+    root.appendChild(cards);
+    root.appendChild(h("div", { class: "lower-note", html: mi("shield") + "<span>Tu biblioteca se sincroniza entre tus dispositivos. Los datos son los que tú capturaste; la app no inventa cifras ni imágenes.</span>" }));
+    return root;
+  }
+
+  let projSearch = "";
+  function viewProjects(state) {
+    const root = h("div", {});
+    root.appendChild(pageHeading("Proyectos", "Una biblioteca para reutilizar fotos, modelos y precios.", [mBtn("btn-primary", "plus", "Agregar proyecto", newProject)]));
+    const input = h("input", { id: "search-projects", placeholder: "Buscar por nombre o ubicación", "aria-label": "Buscar proyectos" });
+    input.value = projSearch;
+    const search = h("label", { class: "search", html: mi("search") }); search.appendChild(input);
+    const chips = h("div", { class: "chips" });
+    const count = h("span", { class: "muted", id: "project-count" });
+    const grid = h("div", { class: "cards", id: "project-grid" });
+    const FILTERS = [[null, "Todos"], ["departamentos", "Departamentos"], ["casas", "Casas"], ["mixtas", "Casas y departamentos"]];
+    function fill() {
+      chips.innerHTML = "";
+      FILTERS.forEach(function (f) {
+        const b = h("button", { type: "button", class: "chip" + ((state.libraryFilter || null) === f[0] ? " active" : ""), text: f[1] });
+        b.addEventListener("click", function () { state.libraryFilter = f[0]; render(); });
+        chips.appendChild(b);
+      });
+      const q = projSearch.trim().toLowerCase();
+      const list = state.library.filter(function (e) {
+        const p = infoOf(e);
+        return (!state.libraryFilter || classifyTipoPropiedad(p.tipo) === state.libraryFilter) && (p.name + " " + p.city).toLowerCase().indexOf(q) !== -1;
+      });
+      count.textContent = list.length + " proyecto" + (list.length === 1 ? "" : "s");
+      grid.innerHTML = "";
+      if (!list.length) grid.appendChild(emptyState("project", state.library.length ? "No hay proyectos aquí" : "Tu biblioteca está vacía", state.library.length ? "Prueba otro filtro o busca otro nombre." : "Guarda una ficha en la biblioteca desde el editor y aparecerá aquí.", mBtn("btn-primary", null, "Agregar proyecto", newProject)));
+      list.forEach(function (e) { grid.appendChild(projectCard(e)); });
+    }
+    input.addEventListener("input", function () { projSearch = input.value; fill(); });
+    root.appendChild(h("div", { class: "toolbar" }, [search, chips]));
+    root.appendChild(h("div", { class: "section-head" }, [count, h("span", { class: "muted", text: "Marca hasta tres para agregarlos o compararlos" })]));
+    root.appendChild(grid);
+    fill();
+    return root;
+  }
+
+  function viewDocuments(state) {
+    const root = h("div", {});
+    const nameInput = h("input", { class: "input", placeholder: "Ej. Alonso, Familia Torres…", "aria-label": "Nombre del documento" });
+    nameInput.value = state.document.clientName || "";
+    const saveBtn = mBtn("btn-primary", "save", "Guardar documento abierto", function () {
+    if (!Auth.require("Inicia sesión o crea tu cuenta para guardar documentos.")) return;
+      const name = nameInput.value.trim();
+      if (!name) { nameInput.focus(); toast("Ponle un nombre al documento primero — por ejemplo, el cliente.", 3200); return; }
+      saveBtn.disabled = true;
+      S.saveDocumentAs(name).then(function () {
+        toast("Documento guardado como \"" + name + "\" — se sincroniza con todos tus dispositivos.", 3200);
+        persistStruct();
+      }).catch(function (e) {
+        saveBtn.disabled = false;
+        alert("No se pudo guardar el documento \"" + name + "\".\n\nDetalle: " + ((e && (e.message || e.details)) || "error desconocido") + "\n\nRevisa tu conexión e inténtalo de nuevo. Tus fichas siguen abiertas y guardadas en este dispositivo — no se perdió nada.");
+      });
+    });
+    root.appendChild(pageHeading("Documentos", "Tus documentos guardados con nombre, listos para reabrir.", [mBtn("btn-primary", "plus", "Crear documento", function () { goView("editor"); })]));
+    root.appendChild(h("div", { class: "help-box save-doc" }, [
+      h("strong", { text: "Guardar el documento que tienes abierto" }),
+      h("p", { class: "muted", text: "Se guarda completo, con todas sus fichas, bajo el nombre de un cliente." }),
+      h("div", { class: "save-doc-row" }, [nameInput, saveBtn]),
+    ]));
+    if (!state.savedDocuments.length) {
+      root.appendChild(emptyState("doc", "Aquí estarán tus documentos", "Guarda el documento abierto con el nombre de tu cliente y podrás reabrirlo cuando quieras.", mBtn("btn-primary", null, "Ir al editor", function () { goView("editor"); })));
+    } else {
+      const fmt = { day: "numeric", month: "short", year: "numeric" };
+      const wrap = h("div", { class: "table-wrap" });
+      const tbl = h("table", { class: "data-table", html: "<thead><tr><th>DOCUMENTO</th><th>ACTUALIZADO</th><th>ESTADO</th><th></th></tr></thead><tbody></tbody>" });
+      state.savedDocuments.forEach(function (d) {
+        const isActive = state.activeSavedDocumentId === d.id;
+        const tr = document.createElement("tr");
+        tr.innerHTML = '<td><div class="doc-name"><span class="doc-icon">' + mi("doc") + '</span><div><strong></strong></div></div></td><td></td><td><span class="status"></span></td><td class="acts"></td>';
+        tr.querySelector("strong").textContent = d.name;
+        tr.children[1].textContent = new Date(d.updatedAt).toLocaleDateString("es-MX", fmt);
+        tr.querySelector(".status").textContent = isActive ? "Abierto ahora" : "Guardado";
+        const open = textBtn("arrow", isActive ? "Abierto" : "Abrir", function () {
+    if (!Auth.require("Inicia sesión para abrir tus documentos.")) return;
+          if (!confirm("¿Abrir \"" + d.name + "\"?\n\nEl documento que tienes abierto ahora se reemplaza. Si tiene cambios que no guardaste (en biblioteca, PDF, o en otro documento con nombre), se pierden — esto no se puede deshacer.")) return;
+          open.disabled = true;
+          S.loadSavedDocument(d.id).then(function () {
+            state.view = "editor";
+            toast("Documento \"" + d.name + "\" abierto.");
+            persistStruct();
+            window.scrollTo(0, 0);
+          }).catch(function () { toast("No se pudo abrir el documento (revisa tu conexión).", 3200); open.disabled = false; });
+        });
+        open.disabled = isActive;
+        const del = textBtn("trash", "Eliminar", function () {
+          if (!confirm("¿Eliminar el documento guardado \"" + d.name + "\"? Esto no borra las fichas de tu biblioteca, solo esta lista con nombre. No se puede deshacer.")) return;
+          S.deleteSavedDocument(d.id).catch(function () { toast("No se pudo eliminar (revisa tu conexión).", 3200); });
+        });
+        tr.querySelector(".acts").appendChild(open); tr.querySelector(".acts").appendChild(del);
+        tbl.querySelector("tbody").appendChild(tr);
+      });
+      wrap.appendChild(tbl); root.appendChild(wrap);
+    }
+    root.appendChild(h("div", { class: "lower-note", html: mi("shield") + "<span>Un documento guardado conserva una copia de las fichas al guardarlo. Se sincroniza entre tus dispositivos.</span>" }));
+    return root;
+  }
+
+  function compareTable(ps, forPrint) {
+    const rows = [
+      ["Precio", function (p) { return p.price ? money(p.price, p.cur) : "—"; }],
+      ["Superficie", function (p) { return p.area ? p.area + " m²" : "—"; }],
+      ["Precio por m²", function (p) { return p.price && p.area ? money(p.price / p.area, p.cur) : "—"; }],
+      ["Recámaras", function (p) { return p.beds || "—"; }],
+      ["Baños", function (p) { return p.baths || "—"; }],
+      ["Entrega", function (p) { return p.delivery || "—"; }],
+      ["Primer pago", function (p) { return p.deposit || "—"; }],
+      ["Modelos en la ficha", function (p) { return String(p.models); }],
+    ];
+    const wrap = h("div", { class: forPrint ? "cmp-sheet" : "table-wrap" });
+    let html = "<table class=\"data-table\"><thead><tr><th>CARACTERÍSTICA</th>" + ps.map(function (p) { return '<th><strong class="cmp-name">' + esc(p.name) + "</strong><br><span class=\"muted\">" + esc(p.city) + "</span></th>"; }).join("") + "</tr></thead><tbody>";
+    rows.forEach(function (r) { html += "<tr><td>" + r[0] + "</td>" + ps.map(function (p) { return "<td>" + esc(r[1](p)) + "</td>"; }).join("") + "</tr>"; });
+    wrap.innerHTML = html + "</tbody></table>";
+    return wrap;
+  }
+  function printCompare() {
+    const ps = libPick.map(function (id) { return state_lib(id); }).filter(Boolean).map(infoOf);
+    if (ps.length < 2) return;
+    const box = h("div", { id: "cmp-print" }, [h("h2", { text: "Cuadro comparativo" }), compareTable(ps, true), h("p", { class: "muted", text: "Se compara el primer modelo de cada ficha, con los valores tal como los capturaste." })]);
+    document.body.appendChild(box);
+    document.body.classList.add("printing-compare");
+    function done() { document.body.classList.remove("printing-compare"); box.remove(); window.removeEventListener("afterprint", done); }
+    window.addEventListener("afterprint", done);
+    window.print();
+  }
+  function state_lib(id) { return S.state.library.find(function (e) { return e.id === id; }); }
+
+  function viewCompare(state) {
+    libPick = libPick.filter(function (id) { return !!state_lib(id); });
+    const ps = libPick.map(state_lib).map(infoOf);
+    const root = h("div", {});
+    const pr = mBtn("btn-primary", "download", "Imprimir / PDF", printCompare);
+    pr.disabled = ps.length < 2;
+    root.appendChild(pageHeading("Comparar proyectos", "Selecciona dos o tres opciones y revisa lo que cambia.", [pr]));
+    const grid = h("div", { class: "compare-grid" });
+    if (!state.library.length) grid.appendChild(emptyState("compare", "Aún no hay proyectos para comparar", "Guarda fichas en la biblioteca desde el editor y podrás compararlas aquí.", mBtn("btn-primary", null, "Ir al editor", function () { goView("editor"); })));
+    state.library.forEach(function (e) {
+      const p = infoOf(e);
+      const lab = h("label", { class: "compare-choice", html: '<input type="checkbox"><div><strong></strong><small></small></div>' });
+      const cb = lab.querySelector("input");
+      cb.checked = libPick.indexOf(e.id) >= 0;
+      lab.querySelector("strong").textContent = p.name;
+      lab.querySelector("small").textContent = p.city || "Ubicación por definir";
+      if (p.photo) { const img = document.createElement("img"); img.alt = ""; img.src = p.photo; lab.insertBefore(img, lab.querySelector("div")); }
+      cb.addEventListener("change", function () {
+        if (cb.checked) {
+          if (libPick.length >= LIB_MAX_PICK) { cb.checked = false; toast("Puedes comparar hasta " + LIB_MAX_PICK + " proyectos."); return; }
+          libPick.push(e.id);
+        } else libPick = libPick.filter(function (id) { return id !== e.id; });
+        render();
+      });
+      grid.appendChild(lab);
+    });
+    root.appendChild(grid);
+    root.appendChild(ps.length < 2 ? h("div", { class: "help-box", text: "Selecciona al menos dos proyectos para ver su comparativo." }) : compareTable(ps, false));
+    root.appendChild(h("p", { class: "muted", style: "margin-top:20px;", text: "Se compara el primer modelo de cada ficha, con los valores tal como los capturaste. No se recomiendan inversiones ni se predicen rendimientos." }));
+    return root;
+  }
+
+  // Invitado en el editor o la revisión: se mira, pero tocar cualquier control pide la cuenta.
+  document.addEventListener("click", function (e) {
+    const t = e.target;
+    if (!t || !t.closest) return;
+    const area = t.closest(".main.guest");
+    if (!area || Auth.isSignedIn()) return;
+    const ctl = t.closest("input,textarea,select,button,label,.upload-slot,.ficha-thumb-card");
+    if (!ctl || !area.contains(ctl) || ctl.closest("[data-free]") || ctl.hasAttribute("data-free")) return;
+    e.preventDefault(); e.stopPropagation();
+    Auth.require("Inicia sesión o crea tu cuenta para editar y guardar.");
+  }, true);
+  document.addEventListener("focusin", function (e) {
+    const t = e.target;
+    const area = t && t.closest && t.closest(".main.guest");
+    if (!area || Auth.isSignedIn() || !/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
+    t.blur();
+    Auth.require("Inicia sesión o crea tu cuenta para editar y guardar.");
+  }, true);
+
   function render() {
     const state = S.state;
     checkLibraryMigrationFailures();
@@ -2459,20 +2996,33 @@
     previewSlot = null;
     designerPreviewSlot = null;
 
-    const main = h("div", { class: "main" });
-    const titles = { 1: "Cliente, fichas y mapa", 2: "Revisión y descarga" };
-    main.appendChild(h("div", { class: "topbar" }, [
-      h("div", {}, [
-        h("p", { class: "eyebrow", text: "Análisis de propiedades" }),
-        h("h1", { text: titles[state.step] }),
-      ]),
-    ]));
-
-    if (state.step === 2) main.appendChild(renderStepReview(state));
-    else main.appendChild(renderStepMain(state));
+    const main = h("div", { class: "main", id: "main" });
+    const view = currentView(state);
+    if (!Auth.isSignedIn() && (view === "editor" || view === "review")) main.classList.add("guest");
+    if (view === "home") main.appendChild(viewHome(state));
+    else if (view === "projects") main.appendChild(viewProjects(state));
+    else if (view === "documents") main.appendChild(viewDocuments(state));
+    else if (view === "compare") main.appendChild(viewCompare(state));
+    else if (view === "review") {
+      const n = state.document.fichas.length;
+      main.appendChild(pageHeading("Revisión y descarga", n + " ficha" + (n === 1 ? "" : "s") + " · revisa el orden antes de descargar.", [
+        mBtn("btn-primary js-pdf", "download", "Descargar PDF", function () { exportPdfNow(); }),
+      ]));
+      main.appendChild(renderStepReview(state));
+    } else {
+      const f = state.activeFichaId && state.activeFichaId !== "MAP" ? S.getFicha(state.activeFichaId) : null;
+      main.appendChild(pageHeading((f && f.desarrollo) || "Cliente, fichas y mapa", "Edita la información y revisa el resultado en vivo.", [
+        mBtn("", "save", "Guardar", function () {
+          persistSilently().then(function () { toast(S.getLastSaveError() ? "⚠ No se pudo guardar (ver aviso)" : "Cambios guardados ✓", 2200); });
+        }),
+        (function () { const b = mBtn("btn-primary", "arrow", "Revisar documento", function () { goView("review"); }, true); b.setAttribute("data-free", "1"); return b; })(),
+      ]));
+      main.appendChild(renderStepMain(state));
+    }
 
     app.appendChild(renderRail(state));
     app.appendChild(main);
+    app.appendChild(renderDock(state));
     if (state.designerPanelOpen) {
       try {
         app.appendChild(renderDesignerModal(state));

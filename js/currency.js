@@ -1,5 +1,5 @@
 /* =========================================================
-   FichaFlow — currency + payment math (+ surface units)
+   propentia — currency + payment math (+ surface units)
    ========================================================= */
 (function () {
   "use strict";
