@@ -1014,3 +1014,16 @@ button.brand{background:none;border:none;padding:0;cursor:pointer;color:inherit}
 /* la opción seleccionada no debe perder su fondo al pasar el cursor */
 .step-btn.current:hover:not(:disabled){ background:var(--ink); color:var(--surface); }
 .step-btn.current:hover .count{ background:rgb(var(--marfil) / .16); }
+/* la barra de abajo va invertida respecto al modo activo: oscura en modo claro, marfil en modo oscuro */
+:root:not([data-theme="dark"]) .dock{
+  --ink:#F2EEE6; --ink-soft:#CFC9BE; --ink-faint:#B3ACA2;
+  --surface:#1B1815; --surface-raised:#2A2621; --stone:#3A342D; --stone-line:#4A443C;
+  --accent:#D08A6C; --accent-soft:#E0A084; --accent-wash:#3A2820; --on-brand:#1B1815;
+  box-shadow:0 14px 36px rgba(0,0,0,.35);
+}
+:root[data-theme="dark"] .dock{
+  --ink:#2A2621; --ink-soft:#5B5347; --ink-faint:#6E675B;
+  --surface:#F2EEE6; --surface-raised:#ECE7DB; --stone:#E3DDCF; --stone-line:#D6CEBE;
+  --accent:#A4573D; --accent-soft:#8E4A33; --accent-wash:#F0DDD3; --on-brand:#F2EEE6;
+  box-shadow:0 14px 36px rgba(0,0,0,.55);
+}
