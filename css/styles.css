@@ -1009,3 +1009,8 @@ button.brand{background:none;border:none;padding:0;cursor:pointer;color:inherit}
 .auth-reason{ font-size:13px; line-height:1.5; color:var(--ink); background:var(--accent-wash); border-radius:8px; padding:10px 12px; margin-top:-4px; }
 .login-btn{ white-space:nowrap; }
 .main.guest .split2-form, .main.guest .panel, .main.guest .review-row, .main.guest .export-bar{ cursor:not-allowed; }
+
+/* ===== FASE 7: ajustes ===== */
+/* la opción seleccionada no debe perder su fondo al pasar el cursor */
+.step-btn.current:hover:not(:disabled){ background:var(--ink); color:var(--surface); }
+.step-btn.current:hover .count{ background:rgb(var(--marfil) / .16); }

@@ -2659,6 +2659,12 @@
     b.addEventListener("click", fn);
     return b;
   }
+  // Mientras la biblioteca se descarga (son muchas imágenes) no se debe decir que está vacía.
+  function libLoading(state) { return state.libraryReady === false; }
+  function libLoadingText(state) {
+    const p = state.libraryProgress;
+    return p && p.total ? "Van " + p.loaded + " de " + p.total + " proyectos. Se van mostrando conforme llegan." : "Un momento…";
+  }
   function emptyState(icon, title, text, btn) {
     return h("div", { class: "empty" }, [h("div", { html: mi(icon) }), h("h3", { text: title }), h("p", { text: text }), btn]);
   }
@@ -2804,6 +2810,7 @@
     root.appendChild(h("div", { class: "section-head" }, [h("h2", { text: "Proyectos de tu biblioteca" }), textBtn("arrow", "Ver todos", function () { goView("projects"); })]));
     const cards = h("div", { class: "cards" });
     if (state.library.length) state.library.slice(0, 3).forEach(function (e) { cards.appendChild(projectCard(e)); });
+    else if (libLoading(state)) cards.appendChild(emptyState("project", "Cargando tu biblioteca…", libLoadingText(state), null));
     else cards.appendChild(emptyState("project", "Tu biblioteca empieza aquí", "Guarda una ficha en la biblioteca desde el editor y aparecerá aquí.", mBtn("btn-primary", null, "Agregar proyecto", newProject)));
     root.appendChild(cards);
     root.appendChild(h("div", { class: "lower-note", html: mi("shield") + "<span>Tu biblioteca se sincroniza entre tus dispositivos. Los datos son los que tú capturaste; la app no inventa cifras ni imágenes.</span>" }));
@@ -2833,9 +2840,10 @@
         const p = infoOf(e);
         return (!state.libraryFilter || classifyTipoPropiedad(p.tipo) === state.libraryFilter) && (p.name + " " + p.city).toLowerCase().indexOf(q) !== -1;
       });
-      count.textContent = list.length + " proyecto" + (list.length === 1 ? "" : "s");
+      count.textContent = list.length + " proyecto" + (list.length === 1 ? "" : "s") + (libLoading(state) && state.libraryProgress ? " · cargando (" + state.libraryProgress.loaded + " de " + state.libraryProgress.total + ")…" : "");
       grid.innerHTML = "";
-      if (!list.length) grid.appendChild(emptyState("project", state.library.length ? "No hay proyectos aquí" : "Tu biblioteca está vacía", state.library.length ? "Prueba otro filtro o busca otro nombre." : "Guarda una ficha en la biblioteca desde el editor y aparecerá aquí.", mBtn("btn-primary", null, "Agregar proyecto", newProject)));
+      if (!list.length && libLoading(state)) grid.appendChild(emptyState("project", "Cargando tu biblioteca…", libLoadingText(state), null));
+      else if (!list.length) grid.appendChild(emptyState("project", state.library.length ? "No hay proyectos aquí" : "Tu biblioteca está vacía", state.library.length ? "Prueba otro filtro o busca otro nombre." : "Guarda una ficha en la biblioteca desde el editor y aparecerá aquí.", mBtn("btn-primary", null, "Agregar proyecto", newProject)));
       list.forEach(function (e) { grid.appendChild(projectCard(e)); });
     }
     input.addEventListener("input", function () { projSearch = input.value; fill(); });
@@ -2944,7 +2952,8 @@
     pr.disabled = ps.length < 2;
     root.appendChild(pageHeading("Comparar proyectos", "Selecciona dos o tres opciones y revisa lo que cambia.", [pr]));
     const grid = h("div", { class: "compare-grid" });
-    if (!state.library.length) grid.appendChild(emptyState("compare", "Aún no hay proyectos para comparar", "Guarda fichas en la biblioteca desde el editor y podrás compararlas aquí.", mBtn("btn-primary", null, "Ir al editor", function () { goView("editor"); })));
+    if (!state.library.length && libLoading(state)) grid.appendChild(emptyState("compare", "Cargando tu biblioteca…", libLoadingText(state), null));
+    else if (!state.library.length) grid.appendChild(emptyState("compare", "Aún no hay proyectos para comparar", "Guarda fichas en la biblioteca desde el editor y podrás compararlas aquí.", mBtn("btn-primary", null, "Ir al editor", function () { goView("editor"); })));
     state.library.forEach(function (e) {
       const p = infoOf(e);
       const lab = h("label", { class: "compare-choice", html: '<input type="checkbox"><div><strong></strong><small></small></div>' });

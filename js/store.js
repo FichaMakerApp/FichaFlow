@@ -1004,12 +1004,29 @@
       if (state.document.fichas.length && !state.activeFichaId) {
         state.activeFichaId = state.document.fichas[0].id;
       }
-      Sync.loadLibraryRemote().catch(function (e) {
+      // Las páginas se van mostrando conforme llegan (no al final), pero sin
+      // repintar más de dos veces por segundo: cada página trae imágenes pesadas.
+      let latestPartial = null, paintTimer = null;
+      function paintPartial() {
+        paintTimer = null;
+        if (!latestPartial || state.libraryReady) return;
+        const sorted = latestPartial.entries.slice().sort(function (a, b) { return a.savedAt - b.savedAt; });
+        state.library = mergeLibraryForDisplay(legacyLocal, sorted);
+        state.libraryProgress = { loaded: latestPartial.loaded, total: latestPartial.total };
+        notify();
+      }
+      Sync.loadLibraryRemote(function (p) {
+        latestPartial = p;
+        state.libraryProgress = { loaded: p.loaded, total: p.total };
+        if (!paintTimer) paintTimer = setTimeout(paintPartial, 500);
+      }).catch(function (e) {
         console.error("No se pudo cargar la biblioteca compartida.", e);
         return null; // null = couldn't reach it at all, distinct from "reached it and it's empty"
       }).then(function (remoteLibrary) {
+        if (paintTimer) { clearTimeout(paintTimer); paintTimer = null; }
         state.library = mergeLibraryForDisplay(legacyLocal, remoteLibrary);
         state.libraryReady = true;
+        state.libraryProgress = null;
         notify();
         // Sync anything local-only up to the shared library in the
         // background too — never block or gate boot on this (that's what

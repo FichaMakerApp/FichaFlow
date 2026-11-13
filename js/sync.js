@@ -50,7 +50,9 @@
   // one real data-loss incident from being "clever" about concurrency;
   // slow-but-correct wins until there's a solid, well-tested reason to
   // revisit it.
-  function loadLibraryRemote() {
+  // onProgress({total, loaded, entries}) se llama cada vez que termina una página, para ir
+  // mostrándolas sin esperar a todas.
+  function loadLibraryRemote(onProgress) {
     // Si la base todavía no tiene la columna user_id (antes de correr supabase-cuentas.sql), se lee sin ella.
     return client.from("library_pages").select("id, saved_at, name, user_id").order("saved_at", { ascending: true }).then(function (res) {
       if (res.error && res.error.code === "42703") return client.from("library_pages").select("id, saved_at, name").order("saved_at", { ascending: true });
@@ -58,27 +60,57 @@
     }).then(function (res) {
       if (res.error) throw res.error;
       const rows = res.data || [];
-      let chain = Promise.resolve();
-      const out = [];
-      rows.forEach(function (row) {
-        chain = chain.then(function () {
-          return client.from("library_pages").select("ficha").eq("id", row.id).maybeSingle().then(function (full) {
-            if (full.error || !full.data) return;
-            const shellFicha = full.data.ficha || {};
-            // Missing on a page saved before this fix — its ficha never
-            // had its images pulled out to begin with (still several MB
-            // inline, in whatever this row's own `ficha` column already
-            // held above).
-            const assetIds = shellFicha.__assetIds || [];
-            return loadOrderedRows("library_page_assets", "data", "page_id", row.id, assetIds).then(function (assetMap) {
-              const ficha = reinsertAssets(Object.assign({}, shellFicha), assetMap);
-              delete ficha.__assetIds;
-              out.push({ id: row.id, savedAt: row.saved_at, name: row.name || "", ownerId: row.user_id, ficha: ficha });
-            });
-          }).catch(function () {});
+      const results = new Array(rows.length); // por posición: el orden final no depende de quién termine primero
+      let loaded = 0;
+      function report() {
+        if (!onProgress) return;
+        onProgress({ total: rows.length, loaded: loaded, entries: results.filter(Boolean) });
+      }
+      report();
+
+      // Carga una página completa (su fila + sus imágenes). Devuelve true si quedó cargada.
+      function loadOne(i) {
+        const row = rows[i];
+        return client.from("library_pages").select("ficha").eq("id", row.id).maybeSingle().then(function (full) {
+          if (full.error || !full.data) return false;
+          const shellFicha = full.data.ficha || {};
+          // Missing on a page saved before this fix — its ficha never
+          // had its images pulled out to begin with (still several MB
+          // inline, in whatever this row's own `ficha` column already
+          // held above).
+          const assetIds = shellFicha.__assetIds || [];
+          return loadOrderedRows("library_page_assets", "data", "page_id", row.id, assetIds).then(function (assetMap) {
+            const ficha = reinsertAssets(Object.assign({}, shellFicha), assetMap);
+            delete ficha.__assetIds;
+            results[i] = { id: row.id, savedAt: row.saved_at, name: row.name || "", ownerId: row.user_id, ficha: ficha };
+            return true;
+          });
+        }).catch(function () { return false; });
+      }
+
+      // Tres a la vez (antes era una por una y tardaba más de un minuto con
+      // 29 páginas). Lo que falle por saturar la conexión se reintenta DESPUÉS,
+      // una por una, así que el resultado final es el mismo que antes: ninguna
+      // página se queda fuera por haber cargado en paralelo.
+      const failed = [];
+      let next = 0;
+      function worker() {
+        if (next >= rows.length) return Promise.resolve();
+        const i = next++;
+        return loadOne(i).then(function (ok) {
+          if (ok) loaded++; else failed.push(i);
+          report();
+        }).then(worker);
+      }
+      return Promise.all([worker(), worker(), worker()]).then(function () {
+        let chain = Promise.resolve();
+        failed.sort(function (a, b) { return a - b; }).forEach(function (i) {
+          chain = chain.then(function () {
+            return loadOne(i).then(function (ok) { if (ok) { loaded++; report(); } });
+          });
         });
-      });
-      return chain.then(function () { return attachOwnerEmails(out); });
+        return chain;
+      }).then(function () { return attachOwnerEmails(results.filter(Boolean)); });
     });
   }
 
