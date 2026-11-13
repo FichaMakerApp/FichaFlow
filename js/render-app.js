@@ -2780,16 +2780,39 @@
     return card;
   }
 
+  const HERO_SLIDES = [
+    "assets/propentia/hero/casa-playa.webp", "assets/propentia/hero/edificio-ladrillo.webp", "assets/propentia/hero/casa-selva.webp",
+    "assets/propentia/hero/casa-montana.webp", "assets/propentia/hero/casa-nieve.webp",
+  ];
+  // Posición del carrusel: vive fuera para que, si la pantalla se repinta, siga donde iba y no vuelva a la primera.
+  let heroIndex = 0;
   function viewHome(state) {
     const root = h("div", {});
     root.appendChild(pageHeading("Tu espacio de trabajo", "Prepara la información. Dale forma. Compártela.", [mBtn("btn-primary", "plus", "Crear documento", function () { goView("editor"); })]));
-    const first = state.library.map(infoOf).find(function (p) { return p.photo; });
     const hero = h("section", { class: "hero" });
     hero.innerHTML =
       '<div class="hero-content"><div class="eyebrow">DE TU PROYECTO AL DOCUMENTO</div><h2>Todo lo que necesitas<br>para presentar una propiedad.</h2>' +
       '<p>Reúne fotos, modelos y precios. Crea una ficha o compara opciones con la identidad de tu marca.</p></div>' +
       '<div class="hero-image"><span class="hero-number">BIBLIOTECA DE PROYECTOS</span><div class="image-caption"><div><strong>Un proyecto, distintas presentaciones.</strong>Reutiliza la información que ya capturaste.</div>' + mi("project") + "</div></div>";
-    { const img = document.createElement("img"); img.alt = first ? "Portada de " + first.name : "Ilustración genérica de un desarrollo residencial"; img.src = first ? first.photo : "assets/propentia/hero-propiedad.svg"; hero.querySelector(".hero-image").insertBefore(img, hero.querySelector(".hero-number")); }
+    // Carrusel fijo de imágenes de la marca (nunca fotos de la biblioteca): avanza solo, en bucle.
+    const stage = hero.querySelector(".hero-image");
+    stage.setAttribute("role", "img");
+    stage.setAttribute("aria-label", "Imágenes de propiedades de ejemplo");
+    const slides = HERO_SLIDES.map(function (src, i) {
+      const img = document.createElement("img");
+      img.className = "hero-slide" + (i === heroIndex ? " on" : "");
+      img.alt = ""; img.setAttribute("aria-hidden", "true"); img.decoding = "async"; img.src = src;
+      stage.insertBefore(img, stage.querySelector(".hero-number"));
+      return img;
+    });
+    const dots = h("div", { class: "hero-dots", "aria-hidden": "true" }, slides.map(function (_, i) { return h("span", { class: i === heroIndex ? "on" : "" }); }));
+    stage.appendChild(dots);
+    const heroTimer = setInterval(function () {
+      if (!document.body.contains(stage)) { clearInterval(heroTimer); return; } // la pantalla ya se cambió
+      slides[heroIndex].classList.remove("on"); dots.children[heroIndex].classList.remove("on");
+      heroIndex = (heroIndex + 1) % slides.length;
+      slides[heroIndex].classList.add("on"); dots.children[heroIndex].classList.add("on");
+    }, 5000);
     hero.querySelector(".hero-content").appendChild(mBtn("btn-primary", "arrow", "Agregar proyecto", newProject, true));
     root.appendChild(hero);
 
