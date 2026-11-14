@@ -1032,7 +1032,7 @@
         // background too — never block or gate boot on this (that's what
         // made every open slow while pages kept re-attempting a broken
         // upload).
-        if (remoteLibrary !== null && window.Auth && Auth.isSignedIn()) migrateLocalOnlyLibraryEntries(legacyLocal, remoteLibrary);
+        if (remoteLibrary !== null && window.Auth && Auth.canWork()) migrateLocalOnlyLibraryEntries(legacyLocal, remoteLibrary);
       });
       // Same "never block boot" treatment as the library — the list itself
       // is light (no documents, just id/name/dates), but there's no reason

@@ -27,6 +27,7 @@
 
   let currentUser = null;
   let booted = false;
+  let profile = null;        // estado de la cuenta: { status, is_admin, nombre }
   let forced = false;        // la pantalla de "nueva contraseña" no se puede cerrar
   let pendingReason = "";    // por qué se pide la cuenta ("Inicia sesión para guardar…")
 
@@ -130,6 +131,32 @@
     if (first && !first.value) first.focus();
   }
 
+  // Se muestra cuando alguien con sesión pero sin aprobar intenta crear o guardar algo.
+  function showPending() {
+    const st = profile ? profile.status : "pending";
+    const texts = {
+      pending: ["Tu cuenta está en revisión", "Recibimos tu solicitud. Las cuentas se aprueban a mano; en cuanto la aprobemos podrás crear, guardar y descargar. Mientras tanto puedes recorrer toda la app."],
+      rejected: ["Tu solicitud no fue aprobada", "Por ahora no pudimos aprobar tu cuenta. Si crees que es un error, escribe a quien te compartió la app."],
+      suspended: ["Tu cuenta está suspendida", "El acceso de esta cuenta está pausado. Si crees que es un error, escribe a quien te compartió la app."],
+    };
+    const t = texts[st] || texts.pending;
+    card({
+      title: t[0],
+      intro: t[1],
+      fields: [],
+      submitText: st === "pending" ? "Ya me aprobaron: revisar de nuevo" : "Revisar de nuevo",
+      onSubmit: function () { window.location.reload(); },
+      footer: [linkBtn("Cerrar sesión", function () { signOut(); })],
+    });
+  }
+
+  // Carga el estado de la cuenta (aprobada, pendiente…). Si no se puede verificar, no se da acceso.
+  function loadProfile() {
+    if (!currentUser) { profile = null; return Promise.resolve(null); }
+    return Sync.getMyProfileRemote().then(function (p) { profile = p; return p; })
+      .catch(function () { profile = { status: "pending", is_admin: false, nombre: "", unverified: true }; return profile; });
+  }
+
   function validEmail(v) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); }
 
   function showSignIn(email, reason) {
@@ -154,25 +181,33 @@
       footer: [
         linkBtn("¿Olvidaste tu contraseña?", function () { showForgot(emailEl.value.trim()); }),
         h("span", { class: "auth-sep", text: "·" }),
-        linkBtn("Crear cuenta", function () { showSignUp(emailEl.value.trim()); }),
+        linkBtn("Solicitar cuenta", function () { showSignUp(emailEl.value.trim()); }),
       ],
     });
   }
 
   function showSignUp(email) {
     const emailEl = emailInput(email);
+    const nombreEl = h("input", { class: "input", type: "text", autocomplete: "name", required: "required", placeholder: "Nombre y apellido" });
+    const empresaEl = h("input", { class: "input", type: "text", autocomplete: "organization", placeholder: "Inmobiliaria o empresa (si aplica)" });
+    const telEl = h("input", { class: "input", type: "tel", autocomplete: "tel", required: "required", placeholder: "WhatsApp o teléfono" });
     const passEl = passwordInput("new-password");
     const pass2El = passwordInput("new-password");
     card({
-      title: "Crear cuenta",
-      intro: "Tus proyectos, documentos y diseños quedan guardados en tu cuenta y los puedes abrir desde cualquier dispositivo. Nadie más los ve, salvo lo que tú decidas compartir.",
+      title: "Solicitar cuenta",
+      intro: "Las cuentas se aprueban a mano para cuidar la calidad de la comunidad. Cuéntanos quién eres y la revisamos. Tus proyectos y documentos solo los ves tú, salvo lo que decidas compartir.",
       fields: [
+        field("Nombre", nombreEl),
+        field("Inmobiliaria o empresa (opcional)", empresaEl),
+        field("WhatsApp o teléfono (solo para validar tu solicitud)", telEl),
         field("Correo", emailEl),
         field("Contraseña (mínimo " + MIN_PASSWORD + " caracteres)", passEl),
         field("Repite la contraseña", pass2El),
       ],
-      submitText: "Crear cuenta",
+      submitText: "Enviar solicitud",
       validate: function () {
+        if (nombreEl.value.trim().length < 3) return "Escribe tu nombre y apellido.";
+        if (telEl.value.replace(/\D/g, "").length < 8) return "Escribe un teléfono o WhatsApp válido.";
         if (!validEmail(emailEl.value.trim())) return "Escribe un correo válido.";
         if (passEl.value.length < MIN_PASSWORD) return "La contraseña debe tener al menos " + MIN_PASSWORD + " caracteres.";
         if (passEl.value !== pass2El.value) return "Las contraseñas no coinciden.";
@@ -182,13 +217,16 @@
         return auth.signUp({
           email: emailEl.value.trim(),
           password: passEl.value,
-          options: { emailRedirectTo: redirectUrl() },
+          options: {
+            emailRedirectTo: redirectUrl(),
+            data: { nombre: nombreEl.value.trim(), empresa: empresaEl.value.trim(), telefono: telEl.value.trim() },
+          },
         }).then(function (res) {
           if (res.error) throw res.error;
           // With "Confirm email" on, Supabase returns no session until the
           // link is opened. With it off, SIGNED_IN fires and boots the app.
           if (!res.data.session) {
-            return "¡Listo! Te enviamos un correo a " + emailEl.value.trim() + ". Abre el enlace para confirmar tu cuenta y luego inicia sesión.";
+            return "¡Listo! Te enviamos un correo a " + emailEl.value.trim() + ". Abre el enlace para confirmar tu correo y luego inicia sesión. Después revisaremos tu solicitud y podrás empezar a crear en cuanto la aprobemos.";
           }
         });
       },
@@ -287,7 +325,10 @@
 
   // true si hay sesión; si no, abre la ventana de acceso explicando por qué y devuelve false.
   function require(reason) {
-    if (currentUser) return true;
+    if (currentUser) {
+      if (profile && profile.status !== "approved") { showPending(); return false; }
+      return true;
+    }
     showSignIn("", reason || "Inicia sesión o crea tu cuenta para continuar.");
     return false;
   }
@@ -302,6 +343,10 @@
     start: start,
     require: require,
     isSignedIn: function () { return !!currentUser; },
+    loadProfile: loadProfile,
+    canWork: function () { return !!currentUser && (!profile || profile.status === "approved"); },
+    isAdmin: function () { return !!(currentUser && profile && profile.is_admin && profile.status === "approved"); },
+    status: function () { return currentUser ? (profile ? profile.status : "approved") : "guest"; },
     openSignIn: function () { showSignIn("", ""); },
     openSignUp: function () { showSignUp(""); },
     signOut: signOut,

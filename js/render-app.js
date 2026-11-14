@@ -778,6 +778,13 @@
     brandBtn.title = "Modo diseñador: colores, tipografías y estilo de la ficha";
     brandBtn.addEventListener("click", function () { state.railMenuOpen = false; openDesignerModal(); });
     stepper.appendChild(brandBtn);
+    if (Auth.isAdmin()) {
+      const admBtn = h("button", { type: "button", class: "step-btn" + (cur === "admin" ? " current" : ""), html: mi("users") + '<span class="lbl">Administración</span>' });
+      if (adminPending > 0) admBtn.appendChild(h("span", { class: "count pending-count", text: String(adminPending) }));
+      if (cur === "admin") admBtn.setAttribute("aria-current", "page");
+      admBtn.addEventListener("click", function () { goView("admin"); });
+      stepper.appendChild(admBtn);
+    }
 
     railMetaRefs = {
       fichas: h("b", { text: state.document.fichas.length }),
@@ -843,6 +850,7 @@
       ? h("div", { class: "rail-account" }, [
           h("span", { class: "field-label", text: "Sesión iniciada" }),
           h("span", { class: "rail-account-email", text: Auth.currentEmail() }),
+          Auth.canWork() ? null : h("span", { class: "rail-account-email", style: "color:var(--accent);", text: Auth.status() === "pending" ? "En revisión" : Auth.status() === "rejected" ? "Solicitud no aprobada" : "Cuenta suspendida" }),
           signOutBtn,
         ])
       : h("div", { class: "rail-account" }, [
@@ -925,6 +933,8 @@
     } else if (cur === "documents") {
       kids.push(dockBtn("btn-primary", "mas", "Nueva ficha", newProject));
       kids.push(dockBtn("", "biblioteca", "Proyectos", function () { goView("projects"); }));
+    } else if (cur === "admin") {
+      kids.push(dockBtn("btn-primary", "adelante", "Ir a Inicio", function () { goView("home"); }));
     } else if (cur === "compare") {
       const pb = dockBtn("btn-primary", "bajar", "Imprimir comparativo", printCompare);
       pb.disabled = picked.length < 2;
@@ -2598,6 +2608,7 @@
     edit: "M4 20l1-4L16.5 4.5l3 3L8 19z",
     share: "M4 12v7a1 1 0 001 1h14a1 1 0 001-1v-7 M16 6l-4-4-4 4 M12 2v13",
     check: "M5 12l4 4L19 6",
+    users: "M16 20v-1a4 4 0 00-4-4H7a4 4 0 00-4 4v1 M9.5 11a3.5 3.5 0 100-7 3.5 3.5 0 000 7z M21 20v-1a4 4 0 00-3-3.9 M15.5 4.2a3.5 3.5 0 010 6.6",
   };
   function mi(n) { return '<svg class="mico" aria-hidden="true" viewBox="0 0 24 24"><path d="' + (MICON[n] || MICON.doc) + '"/></svg>'; }
   function esc(v) { return String(v == null ? "" : v).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
@@ -2784,6 +2795,98 @@
     "assets/propentia/hero/casa-playa.webp", "assets/propentia/hero/edificio-ladrillo.webp", "assets/propentia/hero/casa-selva.webp",
     "assets/propentia/hero/casa-montana.webp", "assets/propentia/hero/casa-nieve.webp",
   ];
+  // =========================================================
+  // ADMINISTRACIÓN — solo para administradores. La pantalla se oculta a los
+  // demás, pero lo que de verdad protege es el servidor: las funciones
+  // admin_* de Supabase rechazan a quien no sea administrador.
+  // =========================================================
+  let adminPending = 0;
+  let adminBadgeAsked = false;
+  function refreshAdminBadge() {
+    if (!Auth.isAdmin()) return;
+    Sync.adminListUsersRemote().then(function (rows) {
+      const n = rows.filter(function (u) { return u.status === "pending"; }).length;
+      if (n !== adminPending) { adminPending = n; render(); }
+    }).catch(function () {});
+  }
+  const STATUS_LABEL = { pending: "Pendiente", approved: "Aprobada", rejected: "Rechazada", suspended: "Suspendida" };
+  function fmtDate(v) { return v ? new Date(v).toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" }) : "—"; }
+
+  function viewAdmin() {
+    const root = h("div", {});
+    const body = h("div", {});
+    const refresh = mBtn("", "check", "Actualizar", function () { load(); });
+    root.appendChild(pageHeading("Administración", "Aprueba solicitudes y cuida quién usa propentia. Solo tú ves esta pantalla.", [refresh]));
+    root.appendChild(body);
+
+    function act(u, status, question, done) {
+      if (!confirm(question)) return;
+      Sync.adminSetStatusRemote(u.user_id, status).then(function () { toast(done, 2600); load(); })
+        .catch(function (e) { toast("No se pudo cambiar: " + ((e && e.message) || "error"), 3600); });
+    }
+    function who(u) { return (u.nombre || u.email) + (u.nombre ? " (" + u.email + ")" : ""); }
+
+    function paint(rows) {
+      adminPending = rows.filter(function (u) { return u.status === "pending"; }).length;
+      body.innerHTML = "";
+      const count = function (s) { return rows.filter(function (u) { return u.status === s; }).length; };
+      const stats = [["Pendientes", adminPending], ["Aprobadas", count("approved")], ["Rechazadas o suspendidas", count("rejected") + count("suspended")], ["Proyectos en total", rows.reduce(function (a, u) { return a + Number(u.proyectos || 0); }, 0)]];
+      const statRow = h("div", { class: "admin-stats" });
+      stats.forEach(function (x) { const c = h("div", { class: "stat" }, [h("strong", { text: String(x[1]) }), h("span", { text: x[0] })]); statRow.appendChild(c); });
+      body.appendChild(statRow);
+
+      const pend = rows.filter(function (u) { return u.status === "pending"; });
+      body.appendChild(h("div", { class: "section-head" }, [h("h2", { text: "Solicitudes pendientes" }), h("span", { class: "muted", text: pend.length + (pend.length === 1 ? " por revisar" : " por revisar") })]));
+      if (!pend.length) body.appendChild(h("div", { class: "help-box", text: "No hay solicitudes pendientes." }));
+      pend.forEach(function (u) {
+        const card = h("div", { class: "req-card" });
+        card.innerHTML = '<div class="req-info"><strong class="rn"></strong><span class="muted re"></span><span class="muted rt"></span><span class="muted rd"></span></div><div class="req-actions"></div>';
+        card.querySelector(".rn").textContent = u.nombre || "(sin nombre)";
+        card.querySelector(".re").textContent = u.email + (u.empresa ? " · " + u.empresa : "");
+        card.querySelector(".rt").textContent = u.telefono ? "Tel/WhatsApp: " + u.telefono : "Sin teléfono";
+        card.querySelector(".rd").textContent = "Solicitó el " + fmtDate(u.created_at);
+        const box = card.querySelector(".req-actions");
+        box.appendChild(mBtn("btn-primary btn-sm", "check", "Aprobar", function () { act(u, "approved", "¿Aprobar a " + who(u) + "?\n\nPodrá crear, guardar y descargar.", "Cuenta aprobada ✓"); }));
+        box.appendChild(mBtn("btn-sm", null, "Rechazar", function () { act(u, "rejected", "¿Rechazar la solicitud de " + who(u) + "?\n\nSeguirá pudiendo recorrer la app, pero no crear nada.", "Solicitud rechazada"); }));
+        body.appendChild(card);
+      });
+
+      body.appendChild(h("div", { class: "section-head" }, [h("h2", { text: "Todas las cuentas" }), h("span", { class: "muted", text: rows.length + " en total" })]));
+      const wrap = h("div", { class: "table-wrap" });
+      const tbl = h("table", { class: "data-table", html: "<thead><tr><th>PERSONA</th><th>ESTADO</th><th>PROYECTOS</th><th>DOCUMENTOS</th><th>ÚLTIMO ACCESO</th><th></th></tr></thead><tbody></tbody>" });
+      rows.forEach(function (u) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = '<td><strong class="un"></strong><br><span class="muted ue"></span></td><td><span class="status"></span></td><td class="np"></td><td class="nd"></td><td class="ul"></td><td class="acts"></td>';
+        tr.querySelector(".un").textContent = (u.nombre || "(sin nombre)") + (u.is_admin ? " · administrador" : "");
+        tr.querySelector(".ue").textContent = u.email + (u.empresa ? " · " + u.empresa : "");
+        tr.querySelector(".status").textContent = STATUS_LABEL[u.status] || u.status;
+        tr.querySelector(".np").textContent = String(u.proyectos);
+        tr.querySelector(".nd").textContent = String(u.documentos);
+        tr.querySelector(".ul").textContent = fmtDate(u.last_sign_in_at);
+        const acts = tr.querySelector(".acts");
+        if (!u.is_admin) {
+          if (u.status === "approved") acts.appendChild(textBtn(null, "Suspender", function () { act(u, "suspended", "¿Suspender a " + who(u) + "?\n\nSus datos se conservan, pero no podrá crear ni guardar hasta que la reactives.", "Cuenta suspendida"); }));
+          else if (u.status === "pending") acts.appendChild(textBtn("check", "Aprobar", function () { act(u, "approved", "¿Aprobar a " + who(u) + "?", "Cuenta aprobada ✓"); }));
+          else acts.appendChild(textBtn("check", "Reactivar", function () { act(u, "approved", "¿Reactivar a " + who(u) + "?", "Cuenta reactivada ✓"); }));
+        }
+        tbl.querySelector("tbody").appendChild(tr);
+      });
+      wrap.appendChild(tbl); body.appendChild(wrap);
+      const nav = document.querySelector(".pending-count");
+      if (nav) { if (adminPending > 0) nav.textContent = String(adminPending); else nav.remove(); }
+    }
+    function load() {
+      body.innerHTML = "";
+      body.appendChild(h("div", { class: "help-box", text: "Cargando cuentas…" }));
+      Sync.adminListUsersRemote().then(paint).catch(function (e) {
+        body.innerHTML = "";
+        body.appendChild(h("div", { class: "help-box", text: "No se pudo cargar: " + ((e && e.message) || "error desconocido") + ". Si acabas de correr supabase-aprobacion.sql, recarga la página." }));
+      });
+    }
+    load();
+    return root;
+  }
+
   // Posición del carrusel: vive fuera para que, si la pantalla se repinta, siga donde iba y no vuelva a la primera.
   let heroIndex = 0;
   function viewHome(state) {
@@ -3005,7 +3108,7 @@
     const t = e.target;
     if (!t || !t.closest) return;
     const area = t.closest(".main.guest");
-    if (!area || Auth.isSignedIn()) return;
+    if (!area || Auth.canWork()) return;
     const ctl = t.closest("input,textarea,select,button,label,.upload-slot,.ficha-thumb-card");
     if (!ctl || !area.contains(ctl) || ctl.closest("[data-free]") || ctl.hasAttribute("data-free")) return;
     e.preventDefault(); e.stopPropagation();
@@ -3014,7 +3117,7 @@
   document.addEventListener("focusin", function (e) {
     const t = e.target;
     const area = t && t.closest && t.closest(".main.guest");
-    if (!area || Auth.isSignedIn() || !/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
+    if (!area || Auth.canWork() || !/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
     t.blur();
     Auth.require("Inicia sesión o crea tu cuenta para editar y guardar.");
   }, true);
@@ -3029,12 +3132,24 @@
     designerPreviewSlot = null;
 
     const main = h("div", { class: "main", id: "main" });
-    const view = currentView(state);
-    if (!Auth.isSignedIn() && (view === "editor" || view === "review")) main.classList.add("guest");
+    let view = currentView(state);
+    if (view === "admin" && !Auth.isAdmin()) { state.view = "home"; view = "home"; }
+    if (!adminBadgeAsked && Auth.isAdmin()) { adminBadgeAsked = true; refreshAdminBadge(); }
+    if (Auth.isSignedIn() && !Auth.canWork()) {
+      const st = Auth.status();
+      const msg = { pending: "Tu cuenta está en revisión. En cuanto la aprobemos podrás crear, guardar y descargar. Mientras tanto puedes recorrer toda la app.", rejected: "Tu solicitud no fue aprobada. Si crees que es un error, escribe a quien te compartió la app.", suspended: "Tu cuenta está suspendida. Si crees que es un error, escribe a quien te compartió la app." }[st] || "Tu cuenta todavía no está aprobada.";
+      const bar = h("div", { class: "account-banner", role: "status" }, [h("span", { text: msg })]);
+      const again = h("button", { type: "button", class: "textbtn", text: "Revisar de nuevo" });
+      again.addEventListener("click", function () { window.location.reload(); });
+      bar.appendChild(again);
+      main.appendChild(bar);
+    }
+    if (!Auth.canWork() && (view === "editor" || view === "review")) main.classList.add("guest");
     if (view === "home") main.appendChild(viewHome(state));
     else if (view === "projects") main.appendChild(viewProjects(state));
     else if (view === "documents") main.appendChild(viewDocuments(state));
     else if (view === "compare") main.appendChild(viewCompare(state));
+    else if (view === "admin" && Auth.isAdmin()) main.appendChild(viewAdmin());
     else if (view === "review") {
       const n = state.document.fichas.length;
       main.appendChild(pageHeading("Revisión y descarga", n + " ficha" + (n === 1 ? "" : "s") + " · revisa el orden antes de descargar.", [

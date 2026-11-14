@@ -1035,3 +1035,16 @@ button.brand{background:none;border:none;padding:0;cursor:pointer;color:inherit}
 .hero-dots span{ width:6px; height:6px; border-radius:50%; background:rgb(242 238 230 / .55); transition:background .3s, width .3s; }
 .hero-dots span.on{ width:18px; border-radius:3px; background:rgb(242 238 230); }
 @media (prefers-reduced-motion: reduce){ .hero-slide{ transition:none; } }
+
+/* ===== FASE 9: administración ===== */
+.admin-stats{ display:grid; grid-template-columns:repeat(4,1fr); gap:15px; margin-bottom:8px; }
+.admin-stats .stat{ border:1px solid rgb(var(--linea)); background:rgb(var(--marfil)); border-radius:11px; padding:18px 20px; display:flex; flex-direction:column; gap:4px; }
+.admin-stats .stat strong{ font:500 30px Outfit; letter-spacing:-.6px; }
+.admin-stats .stat span{ font-size:12px; color:rgb(var(--piedra)); }
+.req-card{ display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; border:1px solid rgb(var(--terraB)); background:rgb(var(--marfil)); border-radius:12px; padding:18px 20px; margin-bottom:12px; }
+.req-info{ display:flex; flex-direction:column; gap:3px; min-width:0; }
+.req-info strong{ font:500 18px Outfit; }
+.req-actions{ display:flex; gap:8px; flex-wrap:wrap; }
+.pending-count{ background:rgb(var(--terra)) !important; color:rgb(var(--marfil)) !important; }
+.account-banner{ display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; background:var(--accent-wash); border:1px solid var(--accent-line); border-radius:10px; padding:12px 16px; margin-bottom:20px; font-size:13px; line-height:1.5; }
+@media(max-width:740px){ .admin-stats{ grid-template-columns:1fr 1fr; } }

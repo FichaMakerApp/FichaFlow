@@ -14,6 +14,13 @@
 - **Con cuenta:** todo lo anterior, sobre sus propios datos.
 - **Tú, como creador, también necesitas tu cuenta.** No hay un acceso especial: creas la tuya como cualquiera y el script `supabase-cuentas.sql` le asigna todo lo que ya existe.
 
+## Aprobar cuentas (filtro manual)
+
+- Quien se registra llena nombre, inmobiliaria (opcional) y WhatsApp, y confirma su correo. Su cuenta queda **pendiente**: puede entrar y recorrer toda la app, pero no crear, guardar ni descargar hasta que tú la apruebes.
+- Tú, como administrador, ves en la barra de arriba el botón **Administración** (con un número rojo si hay solicitudes). Ahí apruebas o rechazas, y también suspendes o reactivas cuentas. Nadie más ve ese botón, y aunque alguien intentara abrirlo, el servidor rechaza a quien no sea administrador.
+- Para activarlo, corre `supabase-aprobacion.sql` en el SQL Editor de Supabase (después de `supabase-cuentas.sql`), cambiando antes `TU_CORREO@ejemplo.com` por el correo de tu cuenta. Las cuentas que ya existen quedan aprobadas.
+- La app no te avisa por correo cuando llega una solicitud (haría falta un servicio de correo propio); el aviso es el número en el botón Administración.
+
 ## Lo que se hace una sola vez (en este orden)
 
 1. **Supabase → Authentication → Providers → Email:** deja activado "Confirm email".

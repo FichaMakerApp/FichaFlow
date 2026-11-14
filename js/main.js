@@ -7,7 +7,7 @@
     // Store.init() ya lee el diseño predeterminado propio de esa cuenta.
     Auth.start(function () {
       app.innerHTML = '<div class="boot-loading">Cargando tu espacio…</div>';
-      Store.init().then(function () {
+      Auth.loadProfile().then(function () { return Store.init(); }).then(function () {
         App.render();
       }).catch(function (e) {
         console.error("No se pudo iniciar propentia.", e);

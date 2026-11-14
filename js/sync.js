@@ -131,6 +131,33 @@
     }).catch(function () { return entries; });
   }
 
+  // Estado de mi cuenta: { status: pending|approved|rejected|suspended, is_admin, nombre }.
+  // Si la base todavía no tiene la aprobación (antes de correr supabase-aprobacion.sql),
+  // todas las cuentas cuentan como aprobadas para no dejar a nadie fuera.
+  function getMyProfileRemote() {
+    return currentUserId().then(function (uid) {
+      return client.from("profiles").select("status, is_admin, nombre").eq("id", uid).maybeSingle();
+    }).then(function (res) {
+      if (res.error) {
+        if (res.error.code === "42703") return { status: "approved", is_admin: false, nombre: "" };
+        throw res.error;
+      }
+      return res.data || { status: "pending", is_admin: false, nombre: "" };
+    });
+  }
+  // Panel de Administración (el servidor verifica que seas administrador; esto solo llama).
+  function adminListUsersRemote() {
+    return client.rpc("admin_list_users").then(function (res) {
+      if (res.error) throw res.error;
+      return res.data || [];
+    });
+  }
+  function adminSetStatusRemote(userId, status) {
+    return client.rpc("admin_set_status", { p_user: userId, p_status: status }).then(function (res) {
+      if (res.error) throw res.error;
+    });
+  }
+
   // Compartir una página de la biblioteca con otra cuenta, por correo.
   // Resultado: "ok" | "not_found" (no hay cuenta con ese correo) | "self".
   function shareLibraryEntryRemote(pageId, email) {
@@ -418,6 +445,9 @@
   }
 
   window.Sync = {
+    getMyProfileRemote: getMyProfileRemote,
+    adminListUsersRemote: adminListUsersRemote,
+    adminSetStatusRemote: adminSetStatusRemote,
     client: client,
     passwordRecovery: passwordRecovery,
     shareLibraryEntryRemote: shareLibraryEntryRemote,
