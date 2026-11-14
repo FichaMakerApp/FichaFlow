@@ -960,7 +960,7 @@ button.brand{background:none;border:none;padding:0;cursor:pointer;color:inherit}
 .compare-choice small{font-size:11px;color:rgb(var(--piedra))}
 .swatch-label{background:rgb(var(--marfil) / .93) !important;color:rgb(var(--tinta)) !important}
 #cmp-print{display:none}
-@media print{body.printing-compare > *:not(#cmp-print){display:none !important}body.printing-compare #cmp-print{display:block;padding:18mm;color:#2A2621;background:#fff}body.printing-compare #cmp-print .data-table{min-width:0}@page{margin:0}}
+@media print{body.printing-compare > *:not(#cmp-print){display:none !important}body.printing-compare #cmp-print{display:block;padding:18mm;color:#2A2621;background:#fff}body.printing-compare #cmp-print .data-table{min-width:0}body.printing-compare #cmp-print .data-table.cmp-many th,body.printing-compare #cmp-print .data-table.cmp-many td{padding:10px 8px;font-size:11px}body.printing-compare #cmp-print .data-table.cmp-many .cmp-name{font-size:14px}@page{margin:0}}
 @media(max-width:1000px){.cards{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:740px){
   .page-heading{flex-direction:column;align-items:flex-start}.page-heading h1{font-size:30px;line-height:36px}

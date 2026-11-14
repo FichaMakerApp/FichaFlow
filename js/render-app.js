@@ -897,7 +897,8 @@
   // ---------- dock inferior contextual ----------
   // Las acciones de cada paso viven aquí, siempre a la mano. Con páginas de
   // la biblioteca marcadas, el dock cambia a las acciones de la selección.
-  const LIB_MAX_PICK = 3;
+  // Sin tope: se pueden juntar o comparar todas las páginas que quieras (pedido de Jorge, 14 nov 2026).
+  const LIB_MAX_PICK = Infinity;
   let libPick = [];
   function dockBtn(cls, icon, label, fn) {
     const b = h("button", { type: "button", class: "btn " + cls, html: (icon ? iconSvg(icon) : "") + '<span class="lbl"></span>' });
@@ -922,7 +923,6 @@
         addLibraryEntriesToDoc(state, entries);
       }));
       if (picked.length >= 2) kids.push(dockBtn("", "biblioteca", "Comparar " + picked.length, function () { goView("compare"); }));
-      kids.push(h("span", { class: "dock-hint", text: picked.length < LIB_MAX_PICK ? "Puedes marcar hasta " + LIB_MAX_PICK : "Máximo: " + LIB_MAX_PICK }));
     } else if (cur === "home") {
       kids.push(dockBtn("btn-primary", "mas", "Nueva ficha", newProject));
       kids.push(dockBtn("", "biblioteca", "Proyectos", function () { goView("projects"); }));
@@ -3215,7 +3215,7 @@
       ["Modelos en la ficha", function (p) { return String(p.models); }],
     ];
     const wrap = h("div", { class: forPrint ? "cmp-sheet" : "table-wrap" });
-    let html = "<table class=\"data-table\"><thead><tr><th>CARACTERÍSTICA</th>" + ps.map(function (p) { return '<th><strong class="cmp-name">' + esc(p.name) + "</strong><br><span class=\"muted\">" + esc(p.city) + "</span></th>"; }).join("") + "</tr></thead><tbody>";
+    let html = "<table class=\"data-table" + (ps.length > 3 ? " cmp-many" : "") + "\"><thead><tr><th>CARACTERÍSTICA</th>" + ps.map(function (p) { return '<th><strong class="cmp-name">' + esc(p.name) + "</strong><br><span class=\"muted\">" + esc(p.city) + "</span></th>"; }).join("") + "</tr></thead><tbody>";
     rows.forEach(function (r) { html += "<tr><td>" + r[0] + "</td>" + ps.map(function (p) { return "<td>" + esc(r[1](p)) + "</td>"; }).join("") + "</tr>"; });
     wrap.innerHTML = html + "</tbody></table>";
     return wrap;
@@ -3238,7 +3238,7 @@
     const root = h("div", {});
     const pr = mBtn("btn-primary", "download", "Imprimir / PDF", printCompare);
     pr.disabled = ps.length < 2;
-    root.appendChild(pageHeading("Comparar proyectos", "Selecciona dos o tres opciones y revisa lo que cambia.", [pr]));
+    root.appendChild(pageHeading("Comparar proyectos", "Selecciona dos o más opciones y revisa lo que cambia.", [pr]));
     const grid = h("div", { class: "compare-grid" });
     if (!state.library.length && libLoading(state)) grid.appendChild(libLoaderEl(state));
     else if (!state.library.length) grid.appendChild(emptyState("compare", "Aún no hay proyectos para comparar", "Guarda fichas en la biblioteca desde el editor y podrás compararlas aquí.", mBtn("btn-primary", null, "Ir al editor", function () { goView("editor"); })));
