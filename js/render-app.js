@@ -2802,9 +2802,13 @@
   // =========================================================
   let adminPending = 0;
   let adminBadgeAsked = false;
+  // Las cuentas se guardan en memoria: la pantalla se repinta seguido (llegan datos de la biblioteca, etc.)
+  // y si cada repintado volviera a pedirlas al servidor, se vería "Cargando…" en blanco una y otra vez.
+  let adminRows = null, adminFetchedAt = 0, adminSig = "";
   function refreshAdminBadge() {
     if (!Auth.isAdmin()) return;
     Sync.adminListUsersRemote().then(function (rows) {
+      adminRows = rows; adminFetchedAt = Date.now();
       const n = rows.filter(function (u) { return u.status === "pending"; }).length;
       if (n !== adminPending) { adminPending = n; render(); }
     }).catch(function () {});
@@ -2815,18 +2819,19 @@
   function viewAdmin() {
     const root = h("div", {});
     const body = h("div", {});
-    const refresh = mBtn("", "check", "Actualizar", function () { load(); });
+    const refresh = mBtn("", "check", "Actualizar", function () { load(true); });
     root.appendChild(pageHeading("Administración", "Aprueba solicitudes y cuida quién usa propentia. Solo tú ves esta pantalla.", [refresh]));
     root.appendChild(body);
 
     function act(u, status, question, done) {
       if (!confirm(question)) return;
-      Sync.adminSetStatusRemote(u.user_id, status).then(function () { toast(done, 2600); load(); })
+      Sync.adminSetStatusRemote(u.user_id, status).then(function () { toast(done, 2600); load(true); })
         .catch(function (e) { toast("No se pudo cambiar: " + ((e && e.message) || "error"), 3600); });
     }
     function who(u) { return (u.nombre || u.email) + (u.nombre ? " (" + u.email + ")" : ""); }
 
     function paint(rows) {
+      adminSig = JSON.stringify(rows);
       adminPending = rows.filter(function (u) { return u.status === "pending"; }).length;
       body.innerHTML = "";
       const count = function (s) { return rows.filter(function (u) { return u.status === s; }).length; };
@@ -2875,23 +2880,34 @@
       const nav = document.querySelector(".pending-count");
       if (nav) { if (adminPending > 0) nav.textContent = String(adminPending); else nav.remove(); }
     }
-    function load() {
-      body.innerHTML = "";
-      body.appendChild(h("div", { class: "help-box", text: "Cargando cuentas…" }));
-      Sync.adminListUsersRemote().then(paint).catch(function (e) {
+    function load(force) {
+      const fresh = adminRows && !force && Date.now() - adminFetchedAt < 30000;
+      if (adminRows) paint(adminRows);          // se muestra al instante lo que ya se tiene
+      else { body.innerHTML = ""; body.appendChild(h("div", { class: "help-box", text: "Cargando cuentas…" })); }
+      if (fresh) return;
+      Sync.adminListUsersRemote().then(function (rows) {
+        adminRows = rows; adminFetchedAt = Date.now();
+        if (body.isConnected && JSON.stringify(rows) !== adminSig) paint(rows); // solo si algo cambió
+      }).catch(function (e) {
+        if (adminRows) return;                  // ya hay datos en pantalla: no se tapan con un error pasajero
         body.innerHTML = "";
         body.appendChild(h("div", { class: "help-box", text: "No se pudo cargar: " + ((e && e.message) || "error desconocido") + ". Si acabas de correr supabase-aprobacion.sql, recarga la página." }));
       });
     }
-    load();
+    load(false);
     return root;
   }
 
   // Posición del carrusel: vive fuera para que, si la pantalla se repinta, siga donde iba y no vuelva a la primera.
   let heroIndex = 0;
-  function viewHome(state) {
-    const root = h("div", {});
-    root.appendChild(pageHeading("Tu espacio de trabajo", "Prepara la información. Dale forma. Compártela.", [mBtn("btn-primary", "plus", "Crear documento", function () { goView("editor"); })]));
+  let heroCache = null, heroTicker = null;
+  function heroTick() {
+    if (!heroCache || !heroCache.el.isConnected) return; // no está en pantalla
+    heroCache.slides[heroIndex].classList.remove("on"); heroCache.dots.children[heroIndex].classList.remove("on");
+    heroIndex = (heroIndex + 1) % heroCache.slides.length;
+    heroCache.slides[heroIndex].classList.add("on"); heroCache.dots.children[heroIndex].classList.add("on");
+  }
+  function buildHero() {
     const hero = h("section", { class: "hero" });
     hero.innerHTML =
       '<div class="hero-content"><div class="eyebrow">DE TU PROYECTO AL DOCUMENTO</div><h2>Todo lo que necesitas<br>para presentar una propiedad.</h2>' +
@@ -2910,13 +2926,15 @@
     });
     const dots = h("div", { class: "hero-dots", "aria-hidden": "true" }, slides.map(function (_, i) { return h("span", { class: i === heroIndex ? "on" : "" }); }));
     stage.appendChild(dots);
-    const heroTimer = setInterval(function () {
-      if (!document.body.contains(stage)) { clearInterval(heroTimer); return; } // la pantalla ya se cambió
-      slides[heroIndex].classList.remove("on"); dots.children[heroIndex].classList.remove("on");
-      heroIndex = (heroIndex + 1) % slides.length;
-      slides[heroIndex].classList.add("on"); dots.children[heroIndex].classList.add("on");
-    }, 5000);
     hero.querySelector(".hero-content").appendChild(mBtn("btn-primary", "arrow", "Agregar proyecto", newProject, true));
+    heroCache = { el: hero, slides: slides, dots: dots };
+    return hero;
+  }
+  function viewHome(state) {
+    const root = h("div", {});
+    root.appendChild(pageHeading("Tu espacio de trabajo", "Prepara la información. Dale forma. Compártela.", [mBtn("btn-primary", "plus", "Crear documento", function () { goView("editor"); })]));
+    const hero = heroCache ? heroCache.el : buildHero();
+    if (!heroTicker) heroTicker = setInterval(heroTick, 5000);
     root.appendChild(hero);
 
     root.appendChild(h("div", { class: "section-head" }, [h("h2", { text: "¿Qué quieres preparar?" }), h("span", { class: "muted", text: "Elige un punto de partida" })]));

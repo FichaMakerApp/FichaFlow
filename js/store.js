@@ -1011,14 +1011,17 @@
         paintTimer = null;
         if (!latestPartial || state.libraryReady) return;
         const sorted = latestPartial.entries.slice().sort(function (a, b) { return a.savedAt - b.savedAt; });
+        const prevLen = state.library.length;
         state.library = mergeLibraryForDisplay(legacyLocal, sorted);
         state.libraryProgress = { loaded: latestPartial.loaded, total: latestPartial.total };
-        notify();
+        // En Inicio solo se ven las 3 primeras: una vez mostradas, no se repinta toda la pantalla por cada página que llega.
+        // En Inicio (con las 3 primeras ya a la vista), Administración y Documentos no se muestra la biblioteca: no se repinta.
+        if (!((state.view === "home" && prevLen >= 3) || state.view === "admin" || state.view === "documents")) notify();
       }
       Sync.loadLibraryRemote(function (p) {
         latestPartial = p;
         state.libraryProgress = { loaded: p.loaded, total: p.total };
-        if (!paintTimer) paintTimer = setTimeout(paintPartial, 500);
+        if (!paintTimer) paintTimer = setTimeout(paintPartial, 1200);
       }).catch(function (e) {
         console.error("No se pudo cargar la biblioteca compartida.", e);
         return null; // null = couldn't reach it at all, distinct from "reached it and it's empty"
