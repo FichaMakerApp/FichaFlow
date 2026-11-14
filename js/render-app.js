@@ -2450,7 +2450,7 @@
         pdfBtns.forEach(function (b) {
           b.disabled = busy;
           const l = b.querySelector(".lbl");
-          if (l) l.textContent = busy ? "Generando…" : "Descargar PDF";
+          Loaders.busy(b, busy);
         });
       }
       setPdf(true);
@@ -2672,6 +2672,11 @@
   }
   // Mientras la biblioteca se descarga (son muchas imágenes) no se debe decir que está vacía.
   function libLoading(state) { return state.libraryReady === false; }
+  // La ola como barra de avance, con el conteo real de proyectos que ya llegaron.
+  function libLoaderEl(state) {
+    const p = state.libraryProgress;
+    return h("div", { class: "ld-block", html: Loaders.progress(p ? p.loaded : 0, p ? p.total : 0, "proyectos", "Se van mostrando conforme llegan.") });
+  }
   function libLoadingText(state) {
     const p = state.libraryProgress;
     return p && p.total ? "Van " + p.loaded + " de " + p.total + " proyectos. Se van mostrando conforme llegan." : "Un momento…";
@@ -2722,13 +2727,13 @@
     const send = mBtn("btn-primary", "share", "Compartir", function () {
       const email = emailEl.value.trim();
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { msg.className = "auth-msg error"; msg.textContent = "Escribe un correo válido."; return; }
-      send.disabled = true;
+      send.disabled = true; Loaders.busy(send, true);
       Sync.shareLibraryEntryRemote(entry.id, email).then(function (res) {
-        send.disabled = false;
+        send.disabled = false; Loaders.busy(send, false);
         if (res === "not_found") { msg.className = "auth-msg error"; msg.textContent = "Esa persona todavía no tiene cuenta en Propentia. Pídele que cree la suya y vuelve a intentarlo."; return; }
         if (res === "self") { msg.className = "auth-msg error"; msg.textContent = "Esa es tu propia cuenta."; return; }
         msg.className = "auth-msg ok"; msg.textContent = "Listo: " + email + " ya puede ver y usar esta página."; emailEl.value = ""; paintList();
-      }).catch(function () { send.disabled = false; msg.className = "auth-msg error"; msg.textContent = "No se pudo compartir (revisa tu conexión)."; });
+      }).catch(function () { send.disabled = false; Loaders.busy(send, false); msg.className = "auth-msg error"; msg.textContent = "No se pudo compartir (revisa tu conexión)."; });
     });
     const closeBtn = h("button", { type: "button", class: "btn btn-sm btn-ghost", text: "✕ Cerrar" });
     closeBtn.addEventListener("click", close);
@@ -2845,10 +2850,10 @@
       const up = mBtn("btn-primary", "share", "Subir mi marca", showForm);
       up.appendChild(h("span", { class: "tag-reco", text: "Recomendado" }));
       const skip = mBtn("", null, "Omitir por ahora", function () {
-        skip.disabled = true; up.disabled = true;
+        skip.disabled = true; up.disabled = true; Loaders.busy(skip, true);
         saveBrand({ asesor: existing.asesor || "", logo: existing.logo || "", skipped: true }, function () {
           close(); toast("Listo. Podrás subir tu marca después desde «Mi marca».", 3200);
-        }).catch(function () { skip.disabled = false; up.disabled = false; toast("No se pudo guardar (revisa tu conexión).", 3200); });
+        }).catch(function () { skip.disabled = false; up.disabled = false; Loaders.busy(skip, false); toast("No se pudo guardar (revisa tu conexión).", 3200); });
       });
       box.appendChild(h("div", { class: "brand-choice" }, [up, skip]));
       box.appendChild(h("p", { class: "field-hint", text: "Si omites, tus documentos saldrán sin logo hasta que subas el tuyo." }));
@@ -2901,11 +2906,11 @@
       paint();
 
       const save = mBtn("btn-primary", "save", "Guardar mi marca", function () {
-        save.disabled = true;
+        save.disabled = true; Loaders.busy(save, true);
         saveBrand({ asesor: nameEl.value.trim(), logo: logo, skipped: !logo && !nameEl.value.trim() }, function () {
           close(); toast("Marca guardada ✓ Tus documentos nuevos ya la llevan.", 3000);
         }).catch(function (e) {
-          save.disabled = false; msg.className = "auth-msg error";
+          save.disabled = false; Loaders.busy(save, false); msg.className = "auth-msg error";
           msg.textContent = S.getBrand() === null && /brand_profiles|42P01|PGRST205/.test((e && (e.message || e.code)) || "")
             ? "Esta función todavía no está activada en el servidor." : "No se pudo guardar (revisa tu conexión).";
         });
@@ -3012,7 +3017,7 @@
     function load(force) {
       const fresh = adminRows && !force && Date.now() - adminFetchedAt < 30000;
       if (adminRows) paint(adminRows);          // se muestra al instante lo que ya se tiene
-      else { body.innerHTML = ""; body.appendChild(h("div", { class: "help-box", text: "Cargando cuentas…" })); }
+      else { body.innerHTML = ""; body.appendChild(h("div", { class: "help-box ld-center", html: Loaders.dots("Cargando cuentas") })); }
       if (fresh) return;
       Sync.adminListUsersRemote().then(function (rows) {
         adminRows = rows; adminFetchedAt = Date.now();
@@ -3091,7 +3096,7 @@
     root.appendChild(h("div", { class: "section-head" }, [h("h2", { text: "Proyectos de tu biblioteca" }), textBtn("arrow", "Ver todos", function () { goView("projects"); })]));
     const cards = h("div", { class: "cards" });
     if (state.library.length) state.library.slice(0, 3).forEach(function (e) { cards.appendChild(projectCard(e)); });
-    else if (libLoading(state)) cards.appendChild(emptyState("project", "Cargando tu biblioteca…", libLoadingText(state), null));
+    else if (libLoading(state)) cards.appendChild(libLoaderEl(state));
     else cards.appendChild(emptyState("project", "Tu biblioteca empieza aquí", "Guarda una ficha en la biblioteca desde el editor y aparecerá aquí.", mBtn("btn-primary", null, "Agregar proyecto", newProject)));
     root.appendChild(cards);
     root.appendChild(h("div", { class: "lower-note", html: mi("shield") + "<span>Tu biblioteca se sincroniza entre tus dispositivos. Los datos son los que tú capturaste; la app no inventa cifras ni imágenes.</span>" }));
@@ -3123,13 +3128,14 @@
       });
       count.textContent = list.length + " proyecto" + (list.length === 1 ? "" : "s") + (libLoading(state) && state.libraryProgress ? " · cargando (" + state.libraryProgress.loaded + " de " + state.libraryProgress.total + ")…" : "");
       grid.innerHTML = "";
-      if (!list.length && libLoading(state)) grid.appendChild(emptyState("project", "Cargando tu biblioteca…", libLoadingText(state), null));
+      if (!list.length && libLoading(state)) grid.appendChild(libLoaderEl(state));
       else if (!list.length) grid.appendChild(emptyState("project", state.library.length ? "No hay proyectos aquí" : "Tu biblioteca está vacía", state.library.length ? "Prueba otro filtro o busca otro nombre." : "Guarda una ficha en la biblioteca desde el editor y aparecerá aquí.", mBtn("btn-primary", null, "Agregar proyecto", newProject)));
       list.forEach(function (e) { grid.appendChild(projectCard(e)); });
     }
     input.addEventListener("input", function () { projSearch = input.value; fill(); });
     root.appendChild(h("div", { class: "toolbar" }, [search, chips]));
     root.appendChild(h("div", { class: "section-head" }, [count, h("span", { class: "muted", text: "Marca hasta tres para agregarlos o compararlos" })]));
+    if (libLoading(state) && state.library.length) root.appendChild(libLoaderEl(state));
     root.appendChild(grid);
     fill();
     return root;
@@ -3143,12 +3149,13 @@
     if (!Auth.require("Inicia sesión o crea tu cuenta para guardar documentos.")) return;
       const name = nameInput.value.trim();
       if (!name) { nameInput.focus(); toast("Ponle un nombre al documento primero — por ejemplo, el cliente.", 3200); return; }
-      saveBtn.disabled = true;
+      saveBtn.disabled = true; Loaders.busy(saveBtn, true);
       S.saveDocumentAs(name).then(function () {
+        Loaders.busy(saveBtn, false);
         toast("Documento guardado como \"" + name + "\" — se sincroniza con todos tus dispositivos.", 3200);
         persistStruct();
       }).catch(function (e) {
-        saveBtn.disabled = false;
+        saveBtn.disabled = false; Loaders.busy(saveBtn, false);
         alert("No se pudo guardar el documento \"" + name + "\".\n\nDetalle: " + ((e && (e.message || e.details)) || "error desconocido") + "\n\nRevisa tu conexión e inténtalo de nuevo. Tus fichas siguen abiertas y guardadas en este dispositivo — no se perdió nada.");
       });
     });
@@ -3233,7 +3240,7 @@
     pr.disabled = ps.length < 2;
     root.appendChild(pageHeading("Comparar proyectos", "Selecciona dos o tres opciones y revisa lo que cambia.", [pr]));
     const grid = h("div", { class: "compare-grid" });
-    if (!state.library.length && libLoading(state)) grid.appendChild(emptyState("compare", "Cargando tu biblioteca…", libLoadingText(state), null));
+    if (!state.library.length && libLoading(state)) grid.appendChild(libLoaderEl(state));
     else if (!state.library.length) grid.appendChild(emptyState("compare", "Aún no hay proyectos para comparar", "Guarda fichas en la biblioteca desde el editor y podrás compararlas aquí.", mBtn("btn-primary", null, "Ir al editor", function () { goView("editor"); })));
     state.library.forEach(function (e) {
       const p = infoOf(e);

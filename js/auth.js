@@ -92,12 +92,15 @@
       const problem = opts.validate ? opts.validate() : "";
       if (problem) { show(problem, "error"); return; }
       submit.disabled = true;
-      show("Un momento…");
+      Loaders.busy(submit, true);
+      show("");
       Promise.resolve().then(opts.onSubmit).then(function (okText) {
         submit.disabled = false;
+        Loaders.busy(submit, false);
         show(okText || "", okText ? "ok" : "");
       }).catch(function (err) {
         submit.disabled = false;
+        Loaders.busy(submit, false);
         show(friendlyError(err), "error");
       });
     });
