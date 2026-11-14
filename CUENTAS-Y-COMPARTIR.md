@@ -21,6 +21,13 @@
 - Para activarlo, corre `supabase-aprobacion.sql` en el SQL Editor de Supabase (después de `supabase-cuentas.sql`), cambiando antes `TU_CORREO@ejemplo.com` por el correo de tu cuenta. Las cuentas que ya existen quedan aprobadas.
 - La app no te avisa por correo cuando llega una solicitud (haría falta un servicio de correo propio); el aviso es el número en el botón Administración.
 
+## Marca de cada cuenta
+
+- La primera vez que una cuenta aprobada entra, la app le ofrece **Subir mi marca (recomendado)** u **Omitir por ahora**. La marca es su logo y el nombre que sale en "Elaborado por".
+- La puede cambiar cuando quiera en **Mi marca** (barra de arriba). Si omite, sus documentos nuevos salen sin logo y en Inicio ve un recordatorio.
+- Los documentos que ya existían conservan el logo original de la plantilla.
+- Para activarlo, corre `supabase-marca.sql` en el SQL Editor (después de `supabase-aprobacion.sql`). No hay que cambiarle nada: se pega completo y se corre. Hasta que lo corras, la app no ofrece subir marca.
+
 ## Lo que se hace una sola vez (en este orden)
 
 1. **Supabase → Authentication → Providers → Email:** deja activado "Confirm email".

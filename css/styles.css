@@ -1049,3 +1049,16 @@ button.brand{background:none;border:none;padding:0;cursor:pointer;color:inherit}
 .pending-count{ background:rgb(var(--terra)) !important; color:rgb(var(--marfil)) !important; }
 .account-banner{ display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; background:var(--accent-wash); border:1px solid var(--accent-line); border-radius:10px; padding:12px 16px; margin-bottom:20px; font-size:13px; line-height:1.5; }
 @media(max-width:740px){ .admin-stats{ grid-template-columns:1fr 1fr; } }
+
+/* ===== FASE 10: marca ===== */
+.brand-box{ max-width:520px; }
+.brand-choice{ display:flex; flex-direction:column; gap:10px; margin:6px 0 14px; }
+.brand-choice .btn{ width:100%; justify-content:center; }
+.tag-reco{ font:600 10px var(--font-display); letter-spacing:.08em; text-transform:uppercase; background:rgba(242,238,230,.22); padding:3px 8px; border-radius:999px; }
+.brand-pick{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.brand-preview{ display:flex; align-items:center; gap:14px; background:var(--stone); border:1px solid var(--stone-line); border-radius:12px; padding:14px 16px; margin:14px 0 4px; }
+.brand-logo-tile{ flex:0 0 auto; width:72px; height:72px; background:#F2EEE6; border-radius:10px; display:grid; place-items:center; padding:6px; box-sizing:border-box; }
+.brand-logo-tile img{ max-width:100%; max-height:100%; object-fit:contain; }
+.brand-by{ font-size:12.5px; color:var(--ink-soft); letter-spacing:.04em; overflow-wrap:anywhere; }
+/* logo propio de la cuenta en el encabezado de la ficha: sobre un fondo marfil para que se vea con cualquier color */
+.ficha-page .f-brand-logo.custom{ height:52px; width:auto; max-width:150px; padding:6px; background:#F2EEE6; border-radius:8px; box-sizing:content-box; object-fit:contain; }

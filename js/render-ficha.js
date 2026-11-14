@@ -131,7 +131,8 @@
       // "Para:" line is dropped instead of printing an empty one.
       clientName ? h("div", { class: "f-brand-for", style: textStyleCss(eg.estiloHeaderPara, 12.5 * gs), text: "Para: " + clientName }) : null,
       h("div", { class: "f-brand-by", style: textStyleCss(eg.estiloHeaderElaboradoPor, 11 * gs), text: "Elaborado por: " + (doc.advisorName || "") }),
-      h("img", { class: "f-brand-logo", src: LOGO_DATA_URI, alt: "Logo" }),
+      // brandLogo: texto = el logo de la cuenta; "" = sin logo; sin definir = logo original de la plantilla.
+      (typeof doc.brandLogo === "string" && !doc.brandLogo) ? null : h("img", { class: "f-brand-logo" + (doc.brandLogo ? " custom" : ""), src: doc.brandLogo || LOGO_DATA_URI, alt: "Logo" }),
     ]);
   }
 

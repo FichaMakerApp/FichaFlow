@@ -396,10 +396,21 @@
     return eg;
   }
 
+  // Marca de la cuenta (logo + nombre del asesor): los documentos NUEVOS salen con ella.
+  // Los documentos que ya existen sin esta marca siguen con el logo original de la plantilla.
+  let currentBrand = null;
+  function setBrand(b) { currentBrand = b && !b.unavailable ? b : null; }
+  function getBrand() { return currentBrand; }
+  function applyBrandToDocument(doc, brand, previous) {
+    if (!doc || !brand || brand.unavailable) return;
+    if (brand.asesor && (!doc.advisorName || (previous && doc.advisorName === previous.asesor))) doc.advisorName = brand.asesor;
+    if (brand.logo) doc.brandLogo = brand.logo;
+    else if (brand.skipped && !(doc.fichas || []).length) doc.brandLogo = "";
+  }
   function defaultDocument() {
-    return {
+    const doc = {
       clientName: "",
-      advisorName: "",
+      advisorName: currentBrand && currentBrand.asesor ? currentBrand.asesor : "",
       // Blank = the usual "Análisis de propiedades" header title.
       tituloEncabezado: "",
       exchangeRate: 17.5,
@@ -408,6 +419,8 @@
       designerMode: false,
       estilosGlobales: defaultEstilosGlobales(),
     };
+    if (currentBrand) doc.brandLogo = currentBrand.logo || ""; // "" = sin logo
+    return doc;
   }
 
   const MAX_MODELOS = 10;
@@ -1107,6 +1120,9 @@
   });
 
   window.Store = {
+    setBrand: setBrand,
+    getBrand: getBrand,
+    applyBrandToDocument: applyBrandToDocument,
     state: state,
     init: init,
     subscribe: subscribe,

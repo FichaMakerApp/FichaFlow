@@ -145,6 +145,28 @@
       return res.data || { status: "pending", is_admin: false, nombre: "" };
     });
   }
+  // Marca de la cuenta: { asesor, logo, skipped } | null si todavía no hay | { unavailable:true }
+  // si la tabla aún no existe (antes de correr supabase-marca.sql).
+  function getBrandRemote() {
+    return currentUserId().then(function (uid) {
+      return client.from("brand_profiles").select("asesor, logo, skipped").eq("user_id", uid).maybeSingle();
+    }).then(function (res) {
+      if (res.error) {
+        const msg = (res.error.message || "") + " " + (res.error.code || "");
+        if (/42P01|PGRST205|brand_profiles/.test(msg)) return { unavailable: true };
+        throw res.error;
+      }
+      return res.data || null;
+    });
+  }
+  function saveBrandRemote(brand) {
+    return currentUserId().then(function (uid) {
+      return client.from("brand_profiles").upsert({
+        user_id: uid, asesor: brand.asesor || "", logo: brand.logo || "", skipped: !!brand.skipped, updated_at: new Date().toISOString(),
+      }, { onConflict: "user_id" });
+    }).then(function (res) { if (res.error) throw res.error; });
+  }
+
   // Panel de Administración (el servidor verifica que seas administrador; esto solo llama).
   function adminListUsersRemote() {
     return client.rpc("admin_list_users").then(function (res) {
@@ -445,6 +467,8 @@
   }
 
   window.Sync = {
+    getBrandRemote: getBrandRemote,
+    saveBrandRemote: saveBrandRemote,
     getMyProfileRemote: getMyProfileRemote,
     adminListUsersRemote: adminListUsersRemote,
     adminSetStatusRemote: adminSetStatusRemote,

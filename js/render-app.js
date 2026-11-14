@@ -775,8 +775,8 @@
       stepper.appendChild(btn);
     });
     const brandBtn = h("button", { type: "button", class: "step-btn", html: mi("brand") + '<span class="lbl">Mi marca</span>' });
-    brandBtn.title = "Modo diseñador: colores, tipografías y estilo de la ficha";
-    brandBtn.addEventListener("click", function () { state.railMenuOpen = false; openDesignerModal(); });
+    brandBtn.title = "Tu logo y tu nombre en el encabezado de las fichas";
+    brandBtn.addEventListener("click", function () { state.railMenuOpen = false; openBrandDialog({}); });
     stepper.appendChild(brandBtn);
     if (Auth.isAdmin()) {
       const admBtn = h("button", { type: "button", class: "step-btn" + (cur === "admin" ? " current" : ""), html: mi("users") + '<span class="lbl">Administración</span>' });
@@ -2796,6 +2796,135 @@
     "assets/propentia/hero/casa-montana.webp", "assets/propentia/hero/casa-nieve.webp",
   ];
   // =========================================================
+  // MARCA DE LA CUENTA — logo + nombre del asesor. Se ofrece al entrar por
+  // primera vez (subir, recomendado, u omitir) y se puede cambiar en "Mi marca".
+  // =========================================================
+  function logoToDataUrl(file, cb) {
+    const reader = new FileReader();
+    reader.onload = function () {
+      const img = new Image();
+      img.onload = function () {
+        const MAX = 600;
+        const sc = Math.min(1, MAX / Math.max(img.naturalWidth, img.naturalHeight));
+        const c = document.createElement("canvas");
+        c.width = Math.max(1, Math.round(img.naturalWidth * sc)); c.height = Math.max(1, Math.round(img.naturalHeight * sc));
+        c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+        cb(c.toDataURL(file.type === "image/png" ? "image/png" : "image/jpeg", 0.9));
+      };
+      img.onerror = function () { cb(null); };
+      img.src = reader.result;
+    };
+    reader.onerror = function () { cb(null); };
+    reader.readAsDataURL(file);
+  }
+
+  function saveBrand(brand, onDone) {
+    const prev = S.getBrand();
+    return Sync.saveBrandRemote(brand).then(function () {
+      S.setBrand(brand);
+      S.applyBrandToDocument(S.state.document, brand, prev);
+      persistStruct();
+      if (onDone) onDone();
+    });
+  }
+
+  function openBrandDialog(opts) {
+    if (!Auth.require("Inicia sesión o crea tu cuenta para guardar tu marca.")) return;
+    opts = opts || {};
+    const existing = S.getBrand() || {};
+    let logo = existing.logo || "";
+    const overlay = h("div", { class: "modal-overlay" });
+    const box = h("div", { class: "modal-box brand-box", role: "dialog", "aria-label": "Mi marca" });
+    overlay.appendChild(box);
+    function close() { overlay.remove(); }
+
+    function showChoice() {
+      box.innerHTML = "";
+      box.appendChild(h("div", { class: "modal-head" }, [h("h2", { text: "Bienvenido a Propentia" })]));
+      box.appendChild(h("p", { class: "modal-sub", text: "Antes de crear tu primer documento, personalízalo con tu marca. Tu logo y tu nombre salen en el encabezado de tus fichas y de tus PDF. Toma un minuto, y puedes cambiarlo cuando quieras en «Mi marca»." }));
+      const up = mBtn("btn-primary", "share", "Subir mi marca", showForm);
+      up.appendChild(h("span", { class: "tag-reco", text: "Recomendado" }));
+      const skip = mBtn("", null, "Omitir por ahora", function () {
+        skip.disabled = true; up.disabled = true;
+        saveBrand({ asesor: existing.asesor || "", logo: existing.logo || "", skipped: true }, function () {
+          close(); toast("Listo. Podrás subir tu marca después desde «Mi marca».", 3200);
+        }).catch(function () { skip.disabled = false; up.disabled = false; toast("No se pudo guardar (revisa tu conexión).", 3200); });
+      });
+      box.appendChild(h("div", { class: "brand-choice" }, [up, skip]));
+      box.appendChild(h("p", { class: "field-hint", text: "Si omites, tus documentos saldrán sin logo hasta que subas el tuyo." }));
+    }
+
+    function showForm() {
+      box.innerHTML = "";
+      const closeBtn = h("button", { type: "button", class: "btn btn-sm btn-ghost", text: "✕ Cerrar" });
+      closeBtn.addEventListener("click", opts.onboarding ? showChoice : close);
+      box.appendChild(h("div", { class: "modal-head" }, [h("h2", { text: "Mi marca" }), closeBtn]));
+      box.appendChild(h("p", { class: "modal-sub", text: "Así se verá en el encabezado de tus fichas y de tus PDF." }));
+
+      const nameEl = h("input", { class: "input", type: "text", maxlength: "60", placeholder: "NOMBRE Y APELLIDO", "aria-label": "Nombre del asesor" });
+      nameEl.value = existing.asesor || (S.state.document.advisorName || "");
+      uppercaseAsYouType(nameEl);
+
+      const preview = h("div", { class: "brand-preview" });
+      const msg = h("p", { class: "auth-msg", role: "status", "aria-live": "polite" });
+      function paint() {
+        preview.innerHTML = "";
+        const tile = h("div", { class: "brand-logo-tile" });
+        if (logo) { const im = document.createElement("img"); im.alt = "Tu logo"; im.src = logo; tile.appendChild(im); }
+        else tile.appendChild(h("span", { class: "muted", text: "Sin logo" }));
+        preview.appendChild(tile);
+        preview.appendChild(h("div", { class: "brand-by", text: "Elaborado por: " + (nameEl.value.trim() || "TU NOMBRE") }));
+      }
+      nameEl.addEventListener("input", paint);
+
+      const fileEl = h("input", { type: "file", accept: "image/png,image/jpeg,image/webp", style: "display:none;" });
+      fileEl.addEventListener("change", function () {
+        const f = fileEl.files && fileEl.files[0];
+        if (!f) return;
+        if (f.size > 15 * 1024 * 1024) { msg.className = "auth-msg error"; msg.textContent = "La imagen pesa más de 15 MB. Usa una más ligera."; return; }
+        logoToDataUrl(f, function (d) {
+          if (!d) { msg.className = "auth-msg error"; msg.textContent = "No se pudo leer esa imagen. Prueba con un PNG o JPG."; return; }
+          logo = d; msg.className = "auth-msg"; msg.textContent = ""; paint();
+        });
+      });
+      const pick = mBtn("", "share", logo ? "Cambiar logo" : "Elegir logo", function () { fileEl.click(); });
+      const drop = h("div", { class: "brand-pick" }, [pick, fileEl, h("span", { class: "field-hint", text: "PNG, JPG o WebP. Si tu logo es de fondo transparente, mejor." })]);
+      if (logo) {
+        const rm = textBtn(null, "Quitar logo", function () { logo = ""; paint(); });
+        drop.insertBefore(rm, drop.querySelector(".field-hint"));
+      }
+
+      box.appendChild(h("label", { class: "field" }, [h("span", { class: "field-label", text: "Nombre del asesor (sale en «Elaborado por»)" }), nameEl]));
+      box.appendChild(h("div", { class: "field" }, [h("span", { class: "field-label", text: "Logo" }), drop]));
+      box.appendChild(preview);
+      box.appendChild(msg);
+      paint();
+
+      const save = mBtn("btn-primary", "save", "Guardar mi marca", function () {
+        save.disabled = true;
+        saveBrand({ asesor: nameEl.value.trim(), logo: logo, skipped: !logo && !nameEl.value.trim() }, function () {
+          close(); toast("Marca guardada ✓ Tus documentos nuevos ya la llevan.", 3000);
+        }).catch(function (e) {
+          save.disabled = false; msg.className = "auth-msg error";
+          msg.textContent = S.getBrand() === null && /brand_profiles|42P01|PGRST205/.test((e && (e.message || e.code)) || "")
+            ? "Esta función todavía no está activada en el servidor." : "No se pudo guardar (revisa tu conexión).";
+        });
+      });
+      box.appendChild(h("div", { class: "share-actions" }, [save]));
+    }
+
+    overlay.addEventListener("click", function (e) { if (e.target === overlay && !opts.onboarding) close(); });
+    document.body.appendChild(overlay);
+    if (opts.onboarding) showChoice(); else showForm();
+  }
+
+  // Primera vez que una cuenta aprobada entra (sin marca guardada ni omitida): se le ofrece subir la suya.
+  function afterBoot() {
+    const b = window.__brandAtBoot;
+    if (Auth.canWork() && b === null) openBrandDialog({ onboarding: true });
+  }
+
+  // =========================================================
   // ADMINISTRACIÓN — solo para administradores. La pantalla se oculta a los
   // demás, pero lo que de verdad protege es el servidor: las funciones
   // admin_* de Supabase rechazan a quien no sea administrador.
@@ -2933,6 +3062,14 @@
   function viewHome(state) {
     const root = h("div", {});
     root.appendChild(pageHeading("Tu espacio de trabajo", "Prepara la información. Dale forma. Compártela.", [mBtn("btn-primary", "plus", "Crear documento", function () { goView("editor"); })]));
+    const brandNow = S.getBrand();
+    if (Auth.canWork() && brandNow && !brandNow.logo) {
+      const note = h("div", { class: "account-banner", role: "status" }, [h("span", { text: "Aún no subes tu marca: tus documentos nuevos saldrán sin logo. Es rápido y puedes cambiarla cuando quieras." })]);
+      const go = h("button", { type: "button", class: "textbtn", text: "Subir mi marca" });
+      go.addEventListener("click", function () { openBrandDialog({}); });
+      note.appendChild(go);
+      root.appendChild(note);
+    }
     const hero = heroCache ? heroCache.el : buildHero();
     if (!heroTicker) heroTicker = setInterval(heroTick, 5000);
     root.appendChild(hero);
@@ -3210,5 +3347,5 @@
   }
 
   S.subscribe(render);
-  window.App = { render: render };
+  window.App = { render: render, afterBoot: afterBoot };
 })();
