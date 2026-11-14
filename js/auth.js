@@ -104,7 +104,7 @@
 
     let overlay = document.getElementById("auth-overlay");
     if (!overlay) {
-      overlay = h("div", { id: "auth-overlay", class: "auth-screen auth-overlay", role: "dialog", "aria-modal": "true", "aria-label": "Acceso a propentia" });
+      overlay = h("div", { id: "auth-overlay", class: "auth-screen auth-overlay", role: "dialog", "aria-modal": "true", "aria-label": "Acceso a Propentia" });
       document.body.appendChild(overlay);
       overlay.addEventListener("click", function (e) { if (e.target === overlay && !forced) closeAuth(); });
       document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !forced) closeAuth(); });
@@ -115,7 +115,7 @@
     overlay.appendChild(h("div", { class: "auth-card" }, [
       forced ? null : closeBtn,
       h("div", { class: "auth-brand" }, [
-        h("div", { class: "brand-lockup", role: "img", "aria-label": "propentia" }, [
+        h("div", { class: "brand-lockup", role: "img", "aria-label": "Propentia" }, [
           h("span", { class: "brand-nt" }, [h("i")]),
           h("span", { class: "brand-word" }),
         ]),

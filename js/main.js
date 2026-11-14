@@ -10,7 +10,7 @@
       Auth.loadProfile().then(function () { return Store.init(); }).then(function () {
         App.render();
       }).catch(function (e) {
-        console.error("No se pudo iniciar propentia.", e);
+        console.error("No se pudo iniciar Propentia.", e);
         app.innerHTML = '<div class="boot-loading">No se pudo cargar tu espacio. Intenta recargar la página (F5). Si el problema sigue, avísale a quien te dio la app.</div>';
       });
     });

@@ -864,8 +864,8 @@
     loginBtn.classList.add("login-btn");
 
     const children = [
-      h("button", { type: "button", class: "brand", "aria-label": "propentia, inicio", }, [
-        h("div", { class: "brand-lockup", role: "img", "aria-label": "propentia" }, [
+      h("button", { type: "button", class: "brand", "aria-label": "Propentia, inicio", }, [
+        h("div", { class: "brand-lockup", role: "img", "aria-label": "Propentia" }, [
           h("span", { class: "brand-nt" }, [h("i")]),
           h("span", { class: "brand-word" }),
         ]),
@@ -1690,9 +1690,9 @@
     return null;
   }
   const TIPO_PROPIEDAD_META = {
-    casas: { label: "CASAS", bg: "#B3392C" },
-    departamentos: { label: "DEPARTAMENTOS", bg: "#3A7A52" },
-    mixtas: { label: "CASAS Y DEPARTAMENTOS", bg: "#C99A2E" },
+    casas: { label: "CASAS", bg: "#2A2621" },
+    departamentos: { label: "DEPARTAMENTOS", bg: "#2A2621" },
+    mixtas: { label: "CASAS Y DEPARTAMENTOS", bg: "#2A2621" },
   };
 
   // Copia una o varias páginas de la biblioteca al documento abierto.
@@ -2507,7 +2507,7 @@
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    const name = (S.state.document.clientName || "propentia").trim().replace(/\s+/g, "_");
+    const name = (S.state.document.clientName || "Propentia").trim().replace(/\s+/g, "_");
     a.href = url; a.download = name + "_respaldo.json";
     document.body.appendChild(a); a.click(); a.remove();
     URL.revokeObjectURL(url);
@@ -2527,7 +2527,7 @@
         toast("Respaldo importado correctamente.");
       } catch (err) {
         console.error(err);
-        toast("Ese archivo no se pudo leer como respaldo de propentia.");
+        toast("Ese archivo no se pudo leer como respaldo de Propentia.");
       }
     };
     reader.readAsText(file);
@@ -2725,7 +2725,7 @@
       send.disabled = true;
       Sync.shareLibraryEntryRemote(entry.id, email).then(function (res) {
         send.disabled = false;
-        if (res === "not_found") { msg.className = "auth-msg error"; msg.textContent = "Esa persona todavía no tiene cuenta en propentia. Pídele que cree la suya y vuelve a intentarlo."; return; }
+        if (res === "not_found") { msg.className = "auth-msg error"; msg.textContent = "Esa persona todavía no tiene cuenta en Propentia. Pídele que cree la suya y vuelve a intentarlo."; return; }
         if (res === "self") { msg.className = "auth-msg error"; msg.textContent = "Esa es tu propia cuenta."; return; }
         msg.className = "auth-msg ok"; msg.textContent = "Listo: " + email + " ya puede ver y usar esta página."; emailEl.value = ""; paintList();
       }).catch(function () { send.disabled = false; msg.className = "auth-msg error"; msg.textContent = "No se pudo compartir (revisa tu conexión)."; });
@@ -2820,7 +2820,7 @@
     const root = h("div", {});
     const body = h("div", {});
     const refresh = mBtn("", "check", "Actualizar", function () { load(true); });
-    root.appendChild(pageHeading("Administración", "Aprueba solicitudes y cuida quién usa propentia. Solo tú ves esta pantalla.", [refresh]));
+    root.appendChild(pageHeading("Administración", "Aprueba solicitudes y cuida quién usa Propentia. Solo tú ves esta pantalla.", [refresh]));
     root.appendChild(body);
 
     function act(u, status, question, done) {

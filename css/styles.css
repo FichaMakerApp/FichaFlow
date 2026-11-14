@@ -3,7 +3,7 @@
    La interfaz sigue el manual de marca propentia 2.1: marfil #F2EEE6
    (nunca blanco puro) y tinta #2A2621, con un único acento terracota
    #A4573D que también es el color de los botones. Sin verde ni latón
-   (el verde #35594C solo sobrevive como estado "ok"). Títulos en Outfit
+   (ya no hay verde en ningún estado). Títulos en Outfit
    y lectura en Inter.
    La ficha (.ficha-page) NO sigue estos tokens: es un documento
    de impresión con la paleta y las tipografías que elige cada
@@ -13,7 +13,7 @@
   /* marca */
   --brand:#2A2621; --on-brand:#F2EEE6; --brand-strong:#1B1815;
   --sage:#E3DDCF; --logo:#2A2621;
-  --ok:#35594C; --warn:#C99A2E; --info:#2A5A8A;
+  --ok:#2A2621; --warn:#A4573D; --info:#5B5347;
   /* texto y superficies */
   --ink:#2A2621;
   --ink-soft:#5B5347;
@@ -48,7 +48,7 @@
 :root[data-theme="dark"]{
   --brand:#F2EEE6; --on-brand:#1B1815; --brand-strong:#E3DDCF;
   --sage:#2E2924; --logo:#F2EEE6;
-  --ok:#8FB5A4; --warn:#D9B45A; --info:#8DB4D9;
+  --ok:#F2EEE6; --warn:#D08A6C; --info:#CFC9BE;
   --ink:#F2EEE6;
   --ink-soft:#CFC9BE;
   --ink-faint:#B3ACA2;
@@ -291,6 +291,7 @@ textarea.input{ resize:vertical; min-height:60px; }
   font-weight:600; font-size:13px;
 }
 .pay-total.ok{ color:var(--ok); }
+.pay-total.ok::before{ content:"✓ "; }
 .pay-total.bad{ color:var(--danger); }
 
 /* ---------------- image upload ---------------- */
